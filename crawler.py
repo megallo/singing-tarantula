@@ -30,6 +30,10 @@ __license__ = "MIT"
 __author__ = "James Mills"
 __author_email__ = "James Mills, James dot Mills st dotred dot com dot au"
 
+####config stuff
+MIN_COMMENTS = 2
+###
+
 USAGE = "%prog [options] <url>"
 VERSION = "%prog v" + __version__
 
@@ -152,6 +156,7 @@ class Crawler(object):
 
         while not q.empty():
             this_url, depth = q.get()
+            print "retrieving new url ", this_url
 
             #Non-URL-specific filter: Discard anything over depth limit
             if depth > self.depth_limit:
@@ -189,7 +194,7 @@ class Crawler(object):
                                     self.links_remembered.add(link)
                 except Exception, e:
                     print >>sys.stderr, "ERROR: Can't process url '%s' (%s)" % (this_url, e)
-                    #print format_exc()
+                    print format_exc()
 
 class OpaqueDataException (Exception):
     def __init__(self, message, mimetype, url):
@@ -311,8 +316,10 @@ class SongFetcher(object):
                 soup = BeautifulSoup(content)
                 songTable = soup.find(id = "detailed_artists")
                 #tags = soup('a')
-                tags = songTable.find_all(href=re.compile(".*songs\/view.*"))
-#                print "found something ", tags
+                tags = songTable.find_all("tr", { "class" : re.compile("row.") })
+            except AttributeError, error:
+                print >>sys.stderr, "++++++++++++++++++++++ skipping artist page, missing song div.\n %s" % error
+                tags = []
             except urllib2.HTTPError, error:
                 if error.code == 404:
                     print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
@@ -326,15 +333,100 @@ class SongFetcher(object):
                 print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
                 tags = []
             for tag in tags:
-                 #check the comment count for the song. it's in the same table row
-                #if tag.parent.next_sibling.contents[0].string != "0":
-                print tag.string, " ", tag.parent.next_sibling.string
-                href = tag.get("href")
-                if href is not None:
-                    url = urlparse.urljoin(self.url, escape(href))
-                    print url, " added to song page list \n"
-#                    if url not in self:
-#                        self.out_urls.append(url)
+                commentCount = int(tag.contents[1].find("a").string)
+                 #check the comment count for the song
+                if commentCount >= MIN_COMMENTS:
+                    songTag = tag.contents[0].find("a")
+                    songTitle = songTag.string
+                    print songTitle, " ", commentCount
+                    href = songTag.get("href")
+                    if href is not None:
+                        url = urlparse.urljoin(self.url, escape(href))
+                        print url, " added to song page list \n"
+                        if url not in self:
+                            self.out_urls.append(url)
+
+class PagePuller(object):
+
+    """This class retrieves and interprets a web page from songmeanings.net that
+        contains lyrics  and comments. It grabs the relevant HTML from page one
+        and then traverses the rest of the pagination links and appends those.
+        These are saved off to a file.
+    """
+
+    def __init__(self, url):
+        self.url = url
+        self.out_urls = []
+
+    def __getitem__(self, x):
+        return self.out_urls[x]
+
+    def out_links(self):
+        return self.out_urls
+
+    def _addHeaders(self, request):
+        request.add_header("User-Agent", AGENT)
+
+    def _open(self):
+        url = self.url
+        try:
+            request = urllib2.Request(url)
+            handle = urllib2.build_opener()
+        except IOError:
+            return None
+        return (request, handle)
+
+    def fetch(self):
+        request, handle = self._open()
+        self._addHeaders(request)
+        if handle:
+            try:
+                data=handle.open(request)
+                mime_type=data.info().gettype()
+                url=data.geturl();
+                if mime_type != "text/html":
+                    raise OpaqueDataException("Not interested in files of type %s" % mime_type,
+                                              mime_type, url)
+                content = unicode(data.read(), "utf-8",
+                        errors="replace")
+                soup = BeautifulSoup(content)
+                artist = soup.find_all(attrs={'href' : re.compile("artist/view/songs")})[0]
+                artistName = artist.string
+                songTitle = artist.parent.next_sibling.string
+
+                commentBlock = soup.find(id = "comments_listing")
+                f = open(artistName + '_' + songTitle, 'w')
+                f.write(soup.str())
+                f.close()
+                #tags = songTable.find_all("tr", { "class" : re.compile("row.") })
+            except AttributeError, error:
+                print >>sys.stderr, "++++++++++++++++++++++ skipping artist page, missing song div.\n %s" % error
+                tags = []
+            except urllib2.HTTPError, error:
+                if error.code == 404:
+                    print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
+                else:
+                    print >> sys.stderr, "ERROR: %s" % error
+                tags = []
+            except urllib2.URLError, error:
+                print >> sys.stderr, "ERROR: %s" % error
+                tags = []
+            except OpaqueDataException, error:
+                print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
+                tags = []
+#            for tag in tags:
+#                commentCount = int(tag.contents[1].find("a").string)
+#                 #check the comment count for the song
+#                if commentCount >= MIN_COMMENTS:
+#                    songTag = tag.contents[0].find("a")
+#                    songTitle = songTag.string
+#                    print songTitle, " ", commentCount
+#                    href = songTag.get("href")
+#                    if href is not None:
+#                        url = urlparse.urljoin(self.url, escape(href))
+#                        print url, " added to song page list \n"
+#                        if url not in self:
+#                            self.out_urls.append(url)
 
 def getLinks(url):
     page = Fetcher(url)
