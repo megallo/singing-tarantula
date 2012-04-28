@@ -33,7 +33,7 @@ __author_email__ = "James Mills, James dot Mills st dotred dot com dot au"
 USAGE = "%prog [options] <url>"
 VERSION = "%prog v" + __version__
 
-AGENT = "%s/%s" % (__name__, __version__)
+AGENT = "%s/%s" % ("burrito", __version__)
 
 class Link (object):
 
@@ -49,7 +49,7 @@ class Link (object):
         return (self.src == other.src and
                 self.dst == other.dst and
                 self.link_type == other.link_type)
-    
+
     def __str__(self):
         return self.src + " -> " + self.dst
 
@@ -64,15 +64,15 @@ class Crawler(object):
         self.locked = locked           # Limit search to a single host?
         self.confine_prefix=confine    # Limit search to this prefix
         self.exclude_prefixes=exclude; # URL prefixes NOT to visit
-                
+
 
         self.urls_seen = set()          # Used to avoid putting duplicates in queue
         self.urls_remembered = set()    # For reporting to user
         self.visited_links= set()       # Used to avoid re-processing a page
         self.links_remembered = set()   # For reporting to user
-        
+
         self.num_links = 0              # Links found (and not excluded by filters)
-        self.num_followed = 0           # Links followed.  
+        self.num_followed = 0           # Links followed.
 
         # Pre-visit filters:  Only visit a URL if it passes these tests
         self.pre_visit_filters=[self._prefix_ok,
@@ -81,7 +81,7 @@ class Crawler(object):
                                 self._same_host]
 
         # Out-url filters: When examining a visited page, only process
-        # links where the target matches these filters.        
+        # links where the target matches these filters.
         if filter_seen:
             self.out_url_filters=[self._prefix_ok,
                                      self._same_host]
@@ -89,7 +89,7 @@ class Crawler(object):
             self.out_url_filters=[]
 
     def _pre_visit_url_condense(self, url):
-        
+
         """ Reduce (condense) URLs into some canonical form before
         visiting.  All occurrences of equivalent URLs are treated as
         identical.
@@ -105,7 +105,7 @@ class Crawler(object):
     ## state of the Crawler to evaluate whether a given URL should be
     ## used in some context.  Return value of True indicates that the
     ## URL should be used.
-    
+
     def _prefix_ok(self, url):
         """Pass if the URL has the correct prefix, or none is specified"""
         return (self.confine_prefix is None  or
@@ -115,20 +115,20 @@ class Crawler(object):
         """Pass if the URL does not match any exclude patterns"""
         prefixes_ok = [ not url.startswith(p) for p in self.exclude_prefixes]
         return all(prefixes_ok)
-    
+
     def _not_visited(self, url):
         """Pass if the URL has not already been visited"""
         return (url not in self.visited_links)
-    
+
     def _same_host(self, url):
         """Pass if the URL is on the same host as the root URL"""
         try:
             host = urlparse.urlparse(url)[1]
-            return re.match(".*%s" % self.host, host) 
+            return re.match(".*%s" % self.host, host)
         except Exception, e:
             print >> sys.stderr, "ERROR: Can't process url '%s' (%s)" % (url, e)
             return False
-            
+
 
     def crawl(self):
 
@@ -138,7 +138,7 @@ class Crawler(object):
         while q not empty:
            url <- q.get()
            if url is new and suitable:
-              page <- fetch(url)   
+              page <- fetch(url)
               q.put(urls found in page)
            else:
               nothing
@@ -146,20 +146,20 @@ class Crawler(object):
         new and suitable means that we don't re-visit URLs we've seen
         already fetched, and user-supplied criteria like maximum
         search depth are checked. """
-        
+
         q = Queue()
         q.put((self.root, 0))
 
         while not q.empty():
             this_url, depth = q.get()
-            
+
             #Non-URL-specific filter: Discard anything over depth limit
             if depth > self.depth_limit:
                 continue
-            
+
             #Apply URL-based filters.
             do_not_follow = [f for f in self.pre_visit_filters if not f(this_url)]
-            
+
             #Special-case depth 0 (starting URL)
             if depth == 0 and [] != do_not_follow:
                 print >> sys.stderr, "Whoops! Starting URL %s rejected by the following filters:", do_not_follow
@@ -169,13 +169,17 @@ class Crawler(object):
                 try:
                     self.visited_links.add(this_url)
                     self.num_followed += 1
-                    page = Fetcher(this_url)
+                    page = ArtistFetcher(this_url)
                     page.fetch()
+                    # now we have each artist page, which lists their songs with comment count
                     for link_url in [self._pre_visit_url_condense(l) for l in page.out_links()]:
+                        print "\ngoing to artist page ", link_url
                         if link_url not in self.urls_seen:
-                            q.put((link_url, depth+1))
+                            songs = SongFetcher(link_url)
+                            songs.fetch()
+                            #q.put((link_url, depth+1))
                             self.urls_seen.add(link_url)
-                            
+
                         do_not_remember = [f for f in self.out_url_filters if not f(link_url)]
                         if [] == do_not_remember:
                                 self.num_links += 1
@@ -192,11 +196,13 @@ class OpaqueDataException (Exception):
         Exception.__init__(self, message)
         self.mimetype=mimetype
         self.url=url
-        
 
-class Fetcher(object):
-    
-    """The name Fetcher is a slight misnomer: This class retrieves and interprets web pages."""
+
+class ArtistFetcher(object):
+
+    """This class retrieves and interprets a web page from songmeanings.net that
+        contains links to artist pages. It only collects the artist URL if they
+        have a non-zero lyric count."""
 
     def __init__(self, url):
         self.url = url
@@ -234,7 +240,10 @@ class Fetcher(object):
                 content = unicode(data.read(), "utf-8",
                         errors="replace")
                 soup = BeautifulSoup(content)
-                tags = soup('a')
+                artistTable = soup.find(id = "listing_artists")
+                #tags = soup('a')
+                tags = artistTable.find_all(href=re.compile(".*artist\/view.*"))
+                #print "found something ", tags
             except urllib2.HTTPError, error:
                 if error.code == 404:
                     print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
@@ -248,11 +257,84 @@ class Fetcher(object):
                 print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
                 tags = []
             for tag in tags:
+                #check the song count for the artist. it's in the same table row
+                if tag.parent.next_sibling.string != "0":
+                    print tag.string, " ", tag.parent.next_sibling.string
+                    href = tag.get("href")
+                    if href is not None:
+                        url = urlparse.urljoin(self.url, escape(href))
+                        print url, "\n"
+                        if url not in self:
+                            self.out_urls.append(url)
+
+class SongFetcher(object):
+
+    """This class retrieves and interprets a web page from songmeanings.net that
+        contains links to lyric pages. It only collects the song URL if it
+        has a non-zero comment count."""
+
+    def __init__(self, url):
+        self.url = url
+        self.out_urls = []
+
+    def __getitem__(self, x):
+        return self.out_urls[x]
+
+    def out_links(self):
+        return self.out_urls
+
+    def _addHeaders(self, request):
+        request.add_header("User-Agent", AGENT)
+
+    def _open(self):
+        url = self.url
+        try:
+            request = urllib2.Request(url)
+            handle = urllib2.build_opener()
+        except IOError:
+            return None
+        return (request, handle)
+
+    def fetch(self):
+        request, handle = self._open()
+        self._addHeaders(request)
+        if handle:
+            try:
+                data=handle.open(request)
+                mime_type=data.info().gettype()
+                url=data.geturl();
+                if mime_type != "text/html":
+                    raise OpaqueDataException("Not interested in files of type %s" % mime_type,
+                                              mime_type, url)
+                content = unicode(data.read(), "utf-8",
+                        errors="replace")
+                soup = BeautifulSoup(content)
+                songTable = soup.find(id = "detailed_artists")
+                #tags = soup('a')
+                tags = songTable.find_all(href=re.compile(".*songs\/view.*"))
+#                print "found something ", tags
+            except urllib2.HTTPError, error:
+                if error.code == 404:
+                    print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
+                else:
+                    print >> sys.stderr, "ERROR: %s" % error
+                tags = []
+            except urllib2.URLError, error:
+                print >> sys.stderr, "ERROR: %s" % error
+                tags = []
+            except OpaqueDataException, error:
+                print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
+                tags = []
+            for tag in tags:
+                 #check the comment count for the song. it's in the same table row
+                #if tag.parent.next_sibling.contents[0].string != "0":
+                print tag.string, " ", tag.parent.next_sibling.string
                 href = tag.get("href")
                 if href is not None:
                     url = urlparse.urljoin(self.url, escape(href))
-                    if url not in self:
-                        self.out_urls.append(url)
+                    print url, " added to song page list \n"
+#                    if url not in self:
+#                        self.out_urls.append(url)
 
 def getLinks(url):
     page = Fetcher(url)
@@ -275,7 +357,7 @@ def parse_options():
 
     parser.add_option("-l", "--links",
             action="store_true", default=False, dest="links",
-            help="Get links for specified url only")    
+            help="Get links for specified url only")
 
     parser.add_option("-d", "--depth",
             action="store", type="int", default=30, dest="depth_limit",
@@ -287,7 +369,7 @@ def parse_options():
 
     parser.add_option("-x", "--exclude", action="append", type="string",
                       dest="exclude", default=[], help="Exclude URLs by prefix")
-    
+
     parser.add_option("-L", "--show-links", action="store_true", default=False,
                       dest="out_links", help="Output links found")
 
@@ -296,7 +378,7 @@ def parse_options():
 
     parser.add_option("-D", "--dot", action="store_true", default=False,
                       dest="out_dot", help="Output Graphviz dot file")
-    
+
 
 
     opts, args = parser.parse_args()
@@ -335,24 +417,24 @@ class DotWriter:
             name = "N"+m.hexdigest()
             self.node_alias[url]=name
             if not silent:
-                print "\t%s [label=\"%s\"];" % (name, url)                
+                print "\t%s [label=\"%s\"];" % (name, url)
             return name
 
 
     def asDot(self, links):
 
         """ Render a collection of Link objects as a Dot graph"""
-        
+
         print "digraph Crawl {"
         print "\t edge [K=0.2, len=0.1];"
-        for l in links:            
+        for l in links:
             print "\t" + self._safe_alias(l.src) + " -> " + self._safe_alias(l.dst) + ";"
         print  "}"
 
-        
-    
 
-def main():    
+
+
+def main():
     opts, args = parse_options()
 
     url = args[0]
@@ -376,7 +458,7 @@ def main():
 
     if opts.out_links:
         print "\n".join([str(l) for l in crawler.links_remembered])
-        
+
     if opts.out_dot:
         d = DotWriter()
         d.asDot(crawler.links_remembered)
