@@ -192,6 +192,7 @@ class Crawler(object):
                                 songpage_url = self._pre_visit_url_condense(titleURL[title])
                                 print "\n !!! going to song page ", title, songpage_url
                                 song = PagePuller(songpage_url, title, songs.get_artist())
+                                # create a file for each song
                                 song.fetch()
 
                         do_not_remember = [f for f in self.out_url_filters if not f(link_url)]
@@ -329,9 +330,9 @@ class SongFetcher(object):
                 try:
                     #pull out the artist name
                     self.artist = soup.head.title.string.split('|')[2]
-                    self.artist = self.artist.strip().replace(' ','_')
+                    self.artist = re.sub(r"['\\| ]", r'_', self.artist.strip())
                 except IndexError, error:
-                    #the title was malformed, move on
+                    #the head.title string was malformed, move on
                     print >> sys.stderr, "WARNING: no artist name %s" % error
                 #grab the object holding the song table
                 songTable = soup.find(id = "detailed_artists")
@@ -360,7 +361,7 @@ class SongFetcher(object):
                     songTitle = songTag.string
                     print songTitle, " ", commentCount
                     href = songTag.get("href")
-                    songTitle = songTag.string
+                    songTitle = re.sub(r"['\\| ]", r'_', songTag.string.strip())
                     if href is not None and songTitle is not None:
                         url = urlparse.urljoin(self.url, escape(href))
                         print songTitle,url, " added to song page list \n"
@@ -410,9 +411,11 @@ class PagePuller(object):
                     raise OpaqueDataException("Not interested in files of type %s" % mime_type,
                                               mime_type, url)
                 content = unicode(data.read(), "utf-8", errors="replace")
-
-                soup = BeautifulSoup(content)
-                print soup.prettify()
+                f = open(self.artist + '---' + self.title, 'w')
+                f.write(removeNonAscii(content))
+                f.close()
+#                soup = BeautifulSoup(content)
+#                print soup.prettify()
 #                print soup.head.contents[0]
 #                artist = soup.find_all(attrs={'href' : re.compile("artist/view/songs")})[0]
 #                artistName = artist.string
@@ -421,9 +424,7 @@ class PagePuller(object):
 #                commentBlock = soup.find(id="comments_listing")
 #                print commentBlock.str()
 #                print commentBlock.div['class']
-#                f = open(artistName + '_' + songTitle, 'w')
-#                f.write(commentBlock)
-#                f.close()
+
                 #tags = songTable.find_all("tr", { "class" : re.compile("row.") })
             except AttributeError, error:
                 print >>sys.stderr, "++++++++++++++++++++++ skipping song page, missing comments div.\n %s" % error
@@ -453,6 +454,9 @@ class PagePuller(object):
 #                        print url, " added to song page list \n"
 #                        if url not in self:
 #                            self.out_urls.append(url)
+
+def removeNonAscii(s):
+    return "".join(i for i in s if ord(i)<128)
 
 def getLinks(url):
     page = Fetcher(url)
