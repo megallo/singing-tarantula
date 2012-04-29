@@ -186,10 +186,12 @@ class Crawler(object):
                             #q.put((link_url, depth+1))
                             self.urls_seen.add(link_url)
                             print songs.out_links()
-                            # now we have one artist's list of song URLs, so go grab the html
-                            for songpage_url in [self._pre_visit_url_condense(ll) for ll in songs.out_links()]:
-                                print "\n !!! going to song page ", songpage_url
-                                song = PagePuller(songpage_url)
+                            # now we have one artist's list of song titles and URLs, so go grab the html
+                            titleURL = songs.out_links()
+                            for title in titleURL.keys():
+                                songpage_url = self._pre_visit_url_condense(titleURL[title])
+                                print "\n !!! going to song page ", title, songpage_url
+                                song = PagePuller(songpage_url, title, songs.get_artist())
                                 song.fetch()
 
                         do_not_remember = [f for f in self.out_url_filters if not f(link_url)]
@@ -287,13 +289,17 @@ class SongFetcher(object):
 
     def __init__(self, url):
         self.url = url
-        self.out_urls = []
+        self.out_urls = {}
+        self.artist = "UNKNOWN"
 
     def __getitem__(self, x):
         return self.out_urls[x]
 
     def out_links(self):
         return self.out_urls
+
+    def get_artist(self):
+        return self.artist
 
     def _addHeaders(self, request):
         request.add_header("User-Agent", AGENT)
@@ -318,9 +324,16 @@ class SongFetcher(object):
                 if mime_type != "text/html":
                     raise OpaqueDataException("Not interested in files of type %s" % mime_type,
                                               mime_type, url)
-                content = unicode(data.read(), "utf-8",
-                        errors="replace")
+                content = unicode(data.read(), "utf-8", errors="replace")
                 soup = BeautifulSoup(content)
+                try:
+                    #pull out the artist name
+                    self.artist = soup.head.title.string.split('|')[2]
+                    self.artist = self.artist.strip().replace(' ','_')
+                except IndexError, error:
+                    #the title was malformed, move on
+                    print >> sys.stderr, "WARNING: no artist name %s" % error
+                #grab the object holding the song table
                 songTable = soup.find(id = "detailed_artists")
                 #tags = soup('a')
                 tags = songTable.find_all("tr", { "class" : re.compile("row.") })
@@ -347,11 +360,11 @@ class SongFetcher(object):
                     songTitle = songTag.string
                     print songTitle, " ", commentCount
                     href = songTag.get("href")
-                    if href is not None:
+                    songTitle = songTag.string
+                    if href is not None and songTitle is not None:
                         url = urlparse.urljoin(self.url, escape(href))
-                        print url, " added to song page list \n"
-                        if url not in self:
-                            self.out_urls.append(url)
+                        print songTitle,url, " added to song page list \n"
+                        self.out_urls[songTitle] = url
 
 class PagePuller(object):
 
@@ -361,9 +374,11 @@ class PagePuller(object):
         These are saved off to a file.
     """
 
-    def __init__(self, url):
+    def __init__(self, url, songtitle, artistname):
         self.url = url
         self.out_urls = []
+        self.title = songtitle
+        self.artist = artistname
 
     def __getitem__(self, x):
         return self.out_urls[x]
@@ -394,8 +409,8 @@ class PagePuller(object):
                 if mime_type != "text/html":
                     raise OpaqueDataException("Not interested in files of type %s" % mime_type,
                                               mime_type, url)
-                content = unicode(data.read(), "utf-8",
-                        errors="replace")
+                content = unicode(data.read(), "utf-8", errors="replace")
+
                 soup = BeautifulSoup(content)
                 print soup.prettify()
 #                print soup.head.contents[0]
