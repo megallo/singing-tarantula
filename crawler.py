@@ -37,8 +37,8 @@ MIN_COMMENTS = 2
 USAGE = "%prog [options] <url>"
 VERSION = "%prog v" + __version__
 
-AGENT = "%s/%s" % ("burrito", __version__)
-
+AGENT = "%s" % ("Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.1.4) Gecko/20091030 Gentoo Firefox/3.5.4")#, __version__)
+#AGENT = "Mozilla/5.0 (Linux; U; Android 1.0; en-us; dream) AppleWebKit/525.10+ (KHTML, like Gecko) Version/3.0.4 Mobile Safari/523.12.2"
 class Link (object):
 
     def __init__(self, src, dst, link_type):
@@ -176,6 +176,7 @@ class Crawler(object):
                     self.num_followed += 1
                     page = ArtistFetcher(this_url)
                     page.fetch()
+                    print page.out_links()
                     # now we have each artist page, which lists their songs with comment count
                     for link_url in [self._pre_visit_url_condense(l) for l in page.out_links()]:
                         print "\ngoing to artist page ", link_url
@@ -184,6 +185,12 @@ class Crawler(object):
                             songs.fetch()
                             #q.put((link_url, depth+1))
                             self.urls_seen.add(link_url)
+                            print songs.out_links()
+                            # now we have one artist's list of song URLs, so go grab the html
+                            for songpage_url in [self._pre_visit_url_condense(ll) for ll in songs.out_links()]:
+                                print "\n !!! going to song page ", songpage_url
+                                song = PagePuller(songpage_url)
+                                song.fetch()
 
                         do_not_remember = [f for f in self.out_url_filters if not f(link_url)]
                         if [] == do_not_remember:
@@ -390,17 +397,21 @@ class PagePuller(object):
                 content = unicode(data.read(), "utf-8",
                         errors="replace")
                 soup = BeautifulSoup(content)
-                artist = soup.find_all(attrs={'href' : re.compile("artist/view/songs")})[0]
-                artistName = artist.string
-                songTitle = artist.parent.next_sibling.string
-
-                commentBlock = soup.find(id = "comments_listing")
-                f = open(artistName + '_' + songTitle, 'w')
-                f.write(soup.str())
-                f.close()
+                print soup.prettify()
+#                print soup.head.contents[0]
+#                artist = soup.find_all(attrs={'href' : re.compile("artist/view/songs")})[0]
+#                artistName = artist.string
+#                songTitle = artist.parent.next_sibling.string
+#
+#                commentBlock = soup.find(id="comments_listing")
+#                print commentBlock.str()
+#                print commentBlock.div['class']
+#                f = open(artistName + '_' + songTitle, 'w')
+#                f.write(commentBlock)
+#                f.close()
                 #tags = songTable.find_all("tr", { "class" : re.compile("row.") })
             except AttributeError, error:
-                print >>sys.stderr, "++++++++++++++++++++++ skipping artist page, missing song div.\n %s" % error
+                print >>sys.stderr, "++++++++++++++++++++++ skipping song page, missing comments div.\n %s" % error
                 tags = []
             except urllib2.HTTPError, error:
                 if error.code == 404:
@@ -544,7 +555,7 @@ def main():
     print >> sys.stderr,  "Crawling %s (Max Depth: %d)" % (url, depth_limit)
     crawler = Crawler(url, depth_limit, confine_prefix, exclude)
     crawler.crawl()
-
+#    print AGENT
     if opts.out_urls:
         print "\n".join(crawler.urls_seen)
 
