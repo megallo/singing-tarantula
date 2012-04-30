@@ -16,15 +16,6 @@ class Extractor (object):
 
     def __init__(self):
         self.commentcount = 0
-    #for subdirname in os.listdir(sys.argv[1]):
-        #here is where I'll make a file and append the extracted info to it
-    #    f = open(subdirname, 'w') # one file per song
-
-
-
-    #    f.write(str(count) + "\n")
-    #    count += 1
-    #    f.close()
 
     def extractLyrics(self, soup):
         lyrics = soup.find(attrs={'name' : "description"})
@@ -56,20 +47,42 @@ class Extractor (object):
     def count(self):
         return self.commentcount
 
+'''
+    Traverses one directory, which should correspond to
+    all the HTML pages for one song.
+    Writes out lyrics and all comments to Artist_Name---Song_Name
+    in specified output directory
+'''
+class SongHandler (object):
+
+    def __init__(self, indir, outdir):
+        self.inputDirectory = indir
+        self.outputDirectory = outdir
+
+    def handleSong(self):
+        for songfile in os.listdir(self.inputDirectory):
+            print songfile
+
+#        #remove offensive items before handing it to BS
+#        #they used some trickery to prevent me from reading the important content
+#        #but they can't stop me muahahaha
+#        html = open(sys.argv[1]).read()
+#        html = html.replace(r'class="protected"','')
+#        html = re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
+#        soup = BeautifulSoup(html)
+#
+#        #print extractLyrics(soup)
+#        e = Extractor()
+#        e.extractComments(soup, MIN_RATING)
+#        print "total!", e.count()
+    #for subdirname in os.listdir(sys.argv[1]):
+        #here is where I'll make a file and append the extracted info to it
+    #    f = open(subdirname, 'w') # one file per song
 
 def main():
-    #remove offensive items before handing it to BS
-    #they used some trickery to prevent me from reading the important content
-    #but they can't stop me muahahaha
-    html = open(sys.argv[1]).read()
-    html = html.replace(r'class="protected"','')
-    html = re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
-    soup = BeautifulSoup(html)
-
-    #print extractLyrics(soup)
-    e = Extractor()
-    e.extractComments(soup, MIN_RATING)
-    print "total!", e.count()
+    # TODO: this should take the top level dir and then handle each song's dir
+    handler = SongHandler(sys.argv[1],sys.argv[2])
+    handler.handleSong()
 
 if __name__ == "__main__":
     main()
