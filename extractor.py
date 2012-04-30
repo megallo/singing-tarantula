@@ -37,16 +37,23 @@ class Extractor (object):
                     self.commentcount += 1
                     for item in divs.previous_siblings: #keep in mind this prints the lines in reverse order
                         if type(item).__name__ =="NavigableString": #omits <br/> tags
-                            returnMe.append(item.string.strip())
+                            thingy = item.string.strip() # a lot of these are empty lines :(
+                            if len(thingy) != 0:
+                                returnMe.append(thingy)
+                                returnMe.append('\n')
 
         ## this will get all replies ##
         replies = self.soup.find_all("div",{"class":"com-subreply-right"})
         for reply in replies:
             if int(reply.span.strong.string) >= MIN_RATING:
                 self.commentcount += 1
-                returnMe.append(reply.contents[2].string.strip())
+                thingy = reply.contents[2].string.strip() # a lot of these are empty lines :(
+                if len(thingy) != 0:
+                    returnMe.append(thingy)
+                    returnMe.append('\n')
 
-        return returnMe
+
+        return ''.join(returnMe)
 
     def count(self):
         return self.commentcount
@@ -71,18 +78,20 @@ class SongHandler (object):
             outputFileName = os.listdir(self.inputDirectory)[0]
             outputFileName = re.split(re.compile("__\d+$"),outputFileName)[0]
             out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
-            print outputFileName
+            print "outfile:",outputFileName
             needLyrics = True
             for songfile in os.listdir(self.inputDirectory):
                 songfile = os.path.join(self.inputDirectory, songfile)
+                print "infile:",songfile
                 html = self.cleanHTML(songfile)
                 soup = BeautifulSoup(html)
                 ext = Extractor(soup)
                 if needLyrics:
-                    print ext.extractLyrics()
+                    out.write(ext.extractLyrics() + '\n')
                     needLyrics = False
-                print ext.extractComments()
-
+                out.write(ext.extractComments())
+                print "got this many comments ", ext.count()
+            # OK, that's one whole song
             out.close()
         except IndexError:
             print "WARNING: skipping song because the directory is empty -> %s" % self.inputDirectory
@@ -95,7 +104,7 @@ class SongHandler (object):
         html = open(filename).read()
         html = html.replace(r'class="protected"','')
         return re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
-#
+
 #
 #        #print extractLyrics(soup)
 #        e = Extractor()

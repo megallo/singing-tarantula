@@ -414,55 +414,26 @@ class PagePuller(object):
                 f = open(self.artist + '---' + self.title, 'w')
                 f.write(removeNonAscii(content))
                 f.close()
-#                soup = BeautifulSoup(content)
-#                print soup.prettify()
-#                print soup.head.contents[0]
-#                artist = soup.find_all(attrs={'href' : re.compile("artist/view/songs")})[0]
-#                artistName = artist.string
-#                songTitle = artist.parent.next_sibling.string
-#
-#                commentBlock = soup.find(id="comments_listing")
-#                print commentBlock.str()
-#                print commentBlock.div['class']
-
-                #tags = songTable.find_all("tr", { "class" : re.compile("row.") })
-            except AttributeError, error:
-                print >>sys.stderr, "++++++++++++++++++++++ skipping song page, missing comments div.\n %s" % error
-                tags = []
             except urllib2.HTTPError, error:
                 if error.code == 404:
                     print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
                 else:
                     print >> sys.stderr, "ERROR: %s" % error
-                tags = []
             except urllib2.URLError, error:
                 print >> sys.stderr, "ERROR: %s" % error
-                tags = []
             except OpaqueDataException, error:
                 print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
-                tags = []
-#            for tag in tags:
-#                commentCount = int(tag.contents[1].find("a").string)
-#                 #check the comment count for the song
-#                if commentCount >= MIN_COMMENTS:
-#                    songTag = tag.contents[0].find("a")
-#                    songTitle = songTag.string
-#                    print songTitle, " ", commentCount
-#                    href = songTag.get("href")
-#                    if href is not None:
-#                        url = urlparse.urljoin(self.url, escape(href))
-#                        print url, " added to song page list \n"
-#                        if url not in self:
-#                            self.out_urls.append(url)
 
+
+# this is basically a hack
 def removeNonAscii(s):
     return "".join(i for i in s if ord(i)<128)
 
-def getLinks(url):
-    page = Fetcher(url)
-    page.fetch()
-    for i, url in enumerate(page):
-        print "%d. %s" % (i, url)
+#def getLinks(url):
+#    page = Fetcher(url)
+#    page.fetch()
+#    for i, url in enumerate(page):
+#        print "%d. %s" % (i, url)
 
 def parse_options():
     """parse_options() -> opts, args
@@ -561,9 +532,9 @@ def main():
 
     url = args[0]
 
-    if opts.links:
-        getLinks(url)
-        raise SystemExit, 0
+#    if opts.links:
+#        getLinks(url)
+#        raise SystemExit, 0
 
     depth_limit = opts.depth_limit
     confine_prefix=opts.confine
