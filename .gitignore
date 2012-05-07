@@ -5,3 +5,7 @@ data/*
 *.swp
 #ninja IDE
 *.nja
+
+# eclipse IDE
+.py*
+.project
