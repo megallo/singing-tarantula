@@ -345,7 +345,7 @@ class SongFetcher(object):
                 try:
                     #pull out the artist name
                     self.artist = soup.head.title.string.split('|')[2]
-                    self.artist = self.artist.strip().translate(ALPHANUM)
+                    self.artist = removeNonAscii(self.artist.strip()).encode("ascii").translate(ALPHANUM)
                 except IndexError, error:
                     #the head.title string was malformed, move on
                     print >> sys.stderr, "WARNING: no artist name %s" % error
@@ -376,7 +376,7 @@ class SongFetcher(object):
                     songTitle = songTag.string
                     print songTitle, " ", commentCount
                     href = songTag.get("href")
-                    songTitle = songTag.string.strip().translate(ALPHANUM)
+                    songTitle = removeNonAscii(songTag.string.strip()).encode("ascii").translate(ALPHANUM)
                     if href is not None and songTitle is not None:
                         url = urlparse.urljoin(self.url, escape(href))
                         print songTitle,url, " added to song page list \n"
