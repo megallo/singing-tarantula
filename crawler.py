@@ -194,17 +194,19 @@ class Crawler(object):
                                 # for each song page, make a list of URLs
                                 # This includes page 1 (songpage_url) as well as
                                 # the URLs to paginated comment pages
-
+                                songpage_url = self._pre_visit_url_condense(titleURL[title])
+                                print "\ngoing to song page ", title, songpage_url
+                                urlGatherer = PaginationGatherer(songpage_url)
+                                urlGatherer.fetch()
+                                oneSongAllPages = urlGatherer.out_links()
                                 # make a directory for the artist and song
+                                songMaker = PagePuller(title, songs.get_artist())
+                                songMaker.createDirectory()
 
                                 # hand this full list off to the puller where it will grab each page
                                 # and name it 1.html, 2.html, etc. within the artist-song dir
-                                songpage_url = self._pre_visit_url_condense(titleURL[title])
-                                print "\ngoing to song page ", title, songpage_url
-
-                                song = PagePuller(songpage_url, title, songs.get_artist())
-                                # create a file for each song
-                                song.fetch()
+                                songMaker.gatherAllPages(oneSongAllPages)
+                                #done with one song
 
                         do_not_remember = [f for f in self.out_url_filters if not f(link_url)]
                         if [] == do_not_remember:
@@ -378,6 +380,82 @@ class SongFetcher(object):
                         print songTitle,url, " added to song page list \n"
                         self.out_urls[songTitle] = url
 
+
+class PaginationGatherer(object):
+
+    """This class takes one song URL and returns the URLs for every paginated
+        comment page linked to for said song. Return list includes
+        the original URL passed in, because that's convenient.
+
+        If the song doesn't have multiple pages, the only thing in the
+        out_links() will be the song passed in.
+
+    """
+
+    def __init__(self, url):
+        self.url = url
+        self.out_urls = []
+        # go ahead and add the page we're on
+        # because we'll need the comments from there, too
+        self.out_urls.append(url)
+
+    def __getitem__(self, x):
+        return self.out_urls[x]
+
+    def out_links(self):
+        return self.out_urls
+
+    def _addHeaders(self, request):
+        request.add_header("User-Agent", AGENT)
+
+    def _open(self):
+        url = self.url
+        try:
+            request = urllib2.Request(url)
+            handle = urllib2.build_opener()
+        except IOError:
+            return None
+        return (request, handle)
+
+    def fetch(self):
+        request, handle = self._open()
+        self._addHeaders(request)
+        if handle:
+            try:
+                data=handle.open(request)
+                mime_type=data.info().gettype()
+                url=data.geturl();
+                if mime_type != "text/html":
+                    raise OpaqueDataException("Not interested in files of type %s" % mime_type,
+                                              mime_type, url)
+                content = unicode(data.read(), "utf-8",
+                        errors="replace")
+                soup = BeautifulSoup(content)
+                pageDiv = soup.find(id = "paginationbox")
+                #tags = soup('a')
+                tags = pageDiv.find_all('a')
+                print "all of the comments! ", tags
+            except urllib2.HTTPError, error:
+                if error.code == 404:
+                    print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
+                else:
+                    print >> sys.stderr, "ERROR: %s" % error
+                tags = []
+            except urllib2.URLError, error:
+                print >> sys.stderr, "ERROR: %s" % error
+                tags = []
+            except OpaqueDataException, error:
+                print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
+                tags = []
+            for tag in tags:
+                href = tag.get("href")
+                if href is not None:
+                    url = urlparse.urljoin(self.url, escape(href))
+#                    print url, "\n"
+                    # add to complete comment page URL list
+                    if url not in self:
+                        self.out_urls.append(url)
+
 class PagePuller(object):
 
     """This class is dumb. It pulls down one entire retrieved page
@@ -385,9 +463,7 @@ class PagePuller(object):
         It also has a method to create the directory beforehand.
     """
 
-    def __init__(self, url, songtitle, artistname):
-        self.url = url
-        self.out_urls = []
+    def __init__(self, songtitle, artistname):
         self.dirname = songtitle + '---' + artistname
         #I can probably delete these
         self.title = songtitle
