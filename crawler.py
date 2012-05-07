@@ -18,6 +18,7 @@ import urllib2
 import urlparse
 import optparse
 import hashlib
+import os
 from cgi import escape
 from traceback import format_exc
 from Queue import Queue, Empty as QueueEmpty
@@ -174,23 +175,33 @@ class Crawler(object):
                 try:
                     self.visited_links.add(this_url)
                     self.num_followed += 1
-                    page = ArtistFetcher(this_url)
-                    page.fetch()
-                    print page.out_links()
+                    alphabetPage = ArtistFetcher(this_url)
+                    alphabetPage.fetch()
+                    print alphabetPage.out_links()
                     # now we have each artist page, which lists their songs with comment count
-                    for link_url in [self._pre_visit_url_condense(l) for l in page.out_links()]:
+                    for link_url in [self._pre_visit_url_condense(l) for l in alphabetPage.out_links()]:
+                        # for each artist page
                         print "\ngoing to artist page ", link_url
                         if link_url not in self.urls_seen:
+                            # go get links to all song pages, assuming minimum comment count
                             songs = SongFetcher(link_url)
                             songs.fetch()
                             #q.put((link_url, depth+1))
                             self.urls_seen.add(link_url)
-                            print songs.out_links()
                             # now we have one artist's list of song titles and URLs, so go grab the html
                             titleURL = songs.out_links()
                             for title in titleURL.keys():
+                                # for each song page, make a list of URLs
+                                # This includes page 1 (songpage_url) as well as
+                                # the URLs to paginated comment pages
+
+                                # make a directory for the artist and song
+
+                                # hand this full list off to the puller where it will grab each page
+                                # and name it 1.html, 2.html, etc. within the artist-song dir
                                 songpage_url = self._pre_visit_url_condense(titleURL[title])
-                                print "\n !!! going to song page ", title, songpage_url
+                                print "\ngoing to song page ", title, songpage_url
+
                                 song = PagePuller(songpage_url, title, songs.get_artist())
                                 # create a file for each song
                                 song.fetch()
@@ -369,20 +380,32 @@ class SongFetcher(object):
 
 class PagePuller(object):
 
-    """This class retrieves and interprets a web page from songmeanings.net that
-        contains lyrics  and comments. It grabs the relevant HTML from page one
-        and then traverses the rest of the pagination links and appends those.
-        These are saved off to a file.
+    """This class is dumb. It pulls down one entire retrieved page
+        and saves it to a directory.
+        It also has a method to create the directory beforehand.
     """
 
     def __init__(self, url, songtitle, artistname):
         self.url = url
         self.out_urls = []
+        self.dirname = songtitle + '---' + artistname
+        #I can probably delete these
         self.title = songtitle
         self.artist = artistname
 
     def __getitem__(self, x):
         return self.out_urls[x]
+
+    ### If the directory already exists for this song,
+    ### don't bother. I don't want to deal with duped
+    ### or overwritten data
+    def createDirectory(self):
+        # use the artist and song name
+        if os.path.exists(self.dirname):
+            return False
+        else:
+            os.makedirs(self.dirname)
+            return True
 
     def out_links(self):
         return self.out_urls
@@ -390,8 +413,7 @@ class PagePuller(object):
     def _addHeaders(self, request):
         request.add_header("User-Agent", AGENT)
 
-    def _open(self):
-        url = self.url
+    def _open(self, url):
         try:
             request = urllib2.Request(url)
             handle = urllib2.build_opener()
@@ -399,30 +421,35 @@ class PagePuller(object):
             return None
         return (request, handle)
 
-    def fetch(self):
-        request, handle = self._open()
-        self._addHeaders(request)
-        if handle:
-            try:
-                data=handle.open(request)
-                mime_type=data.info().gettype()
-                url=data.geturl();
-                if mime_type != "text/html":
-                    raise OpaqueDataException("Not interested in files of type %s" % mime_type,
-                                              mime_type, url)
-                content = unicode(data.read(), "utf-8", errors="replace")
-                f = open(self.artist + '---' + self.title, 'w')
-                f.write(removeNonAscii(content))
-                f.close()
-            except urllib2.HTTPError, error:
-                if error.code == 404:
-                    print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
-                else:
+    def gatherAllPages(self, songURLs):
+        pageCounter = 1
+        for oneSong in songURLs:
+            # open the page
+            request, handle = self._open(oneSong)
+            self._addHeaders(request)
+            if handle:
+                try:
+                    data=handle.open(request)
+                    mime_type=data.info().gettype()
+                    url=data.geturl();
+                    if mime_type != "text/html":
+                        raise OpaqueDataException("Not interested in files of type %s" % mime_type,
+                                                  mime_type, url)
+                    content = unicode(data.read(), "utf-8", errors="replace")
+                    writeHere = os.path.join(self.dirname, pageCounter, '.html')
+                    print 'writing to file ' , writeHere
+#                    f = open(self.dirname + '/' + self.artist + '---' + self.title, 'w')
+#                    f.write(removeNonAscii(content))
+#                    f.close()
+                except urllib2.HTTPError, error:
+                    if error.code == 404:
+                        print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
+                    else:
+                        print >> sys.stderr, "ERROR: %s" % error
+                except urllib2.URLError, error:
                     print >> sys.stderr, "ERROR: %s" % error
-            except urllib2.URLError, error:
-                print >> sys.stderr, "ERROR: %s" % error
-            except OpaqueDataException, error:
-                print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
+                except OpaqueDataException, error:
+                    print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
 
 
 # this is basically a hack
@@ -545,7 +572,7 @@ def main():
     print >> sys.stderr,  "Crawling %s (Max Depth: %d)" % (url, depth_limit)
     crawler = Crawler(url, depth_limit, confine_prefix, exclude)
     crawler.crawl()
-#    print AGENT
+
     if opts.out_urls:
         print "\n".join(crawler.urls_seen)
 

@@ -47,7 +47,7 @@ class Extractor (object):
         for reply in replies:
             if int(reply.span.strong.string) >= MIN_RATING:
                 self.commentcount += 1
-                thingy = reply.contents[2].string.strip() # a lot of these are empty lines :(
+                thingy = reply.contents[2].string.strip() # a lot of these are empty lines
                 if len(thingy) != 0:
                     returnMe.append(thingy)
                     returnMe.append('\n')
@@ -76,6 +76,7 @@ class SongHandler (object):
         try:
             # use the artist and song name from the input file
             outputFileName = os.listdir(self.inputDirectory)[0]
+            # expected file name is Artist---SongTitle__123
             outputFileName = re.split(re.compile("__\d+$"),outputFileName)[0]
             out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
             print "outfile:",outputFileName
@@ -104,15 +105,6 @@ class SongHandler (object):
         html = open(filename).read()
         html = html.replace(r'class="protected"','')
         return re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
-
-#
-#        #print extractLyrics(soup)
-#        e = Extractor()
-#        e.extractComments(soup, MIN_RATING)
-#        print "total!", e.count()
-    #for subdirname in os.listdir(sys.argv[1]):
-        #here is where I'll make a file and append the extracted info to it
-    #    f = open(subdirname, 'w') # one file per song
 
 def main():
     try:
