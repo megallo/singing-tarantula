@@ -34,6 +34,8 @@ __author_email__ = "James Mills, James dot Mills st dotred dot com dot au"
 ####config stuff
 MIN_COMMENTS = 2
 ###
+# I don't want crazy letters in my path names
+ALPHANUM = ''.join(chr(c) if chr(c).isalnum() else '_' for c in range(256))
 
 USAGE = "%prog [options] <url>"
 VERSION = "%prog v" + __version__
@@ -343,7 +345,7 @@ class SongFetcher(object):
                 try:
                     #pull out the artist name
                     self.artist = soup.head.title.string.split('|')[2]
-                    self.artist = re.sub(r"['\\| ]", r'_', self.artist.strip())
+                    self.artist = self.artist.strip().translate(ALPHANUM)
                 except IndexError, error:
                     #the head.title string was malformed, move on
                     print >> sys.stderr, "WARNING: no artist name %s" % error
@@ -374,7 +376,7 @@ class SongFetcher(object):
                     songTitle = songTag.string
                     print songTitle, " ", commentCount
                     href = songTag.get("href")
-                    songTitle = re.sub(r"['\\| ]", r'_', songTag.string.strip())
+                    songTitle = songTag.string.strip().translate(ALPHANUM)
                     if href is not None and songTitle is not None:
                         url = urlparse.urljoin(self.url, escape(href))
                         print songTitle,url, " added to song page list \n"
@@ -417,12 +419,12 @@ class PaginationGatherer(object):
             return None
         return (request, handle)
 
-    def cleanHTML(self, html):
-        #remove offensive items before handing it to BS
-        #they used some trickery to prevent me from reading the important content
-        #but they can't stop me muahahaha
-        html = html.replace(r'class="protected"','')
-        return re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
+#    def cleanHTML(self, html):
+#        #remove offensive items before handing it to BS
+#        #they used some trickery to prevent me from reading the important content
+#        #but they can't stop me muahahaha
+#        html = html.replace(r'class="protected"','')
+#        return re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
 
     def fetch(self):
         request, handle = self._open()
