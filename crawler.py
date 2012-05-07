@@ -526,9 +526,9 @@ class PagePuller(object):
                     writeHere = os.path.join(self.dirname, pagepage)
                     pageCounter += 1
                     print 'writing to file ' , writeHere
-#                    f = open(self.dirname + '/' + self.artist + '---' + self.title, 'w')
-#                    f.write(removeNonAscii(content))
-#                    f.close()
+                    f = open(writeHere, 'w')
+                    f.write(removeNonAscii(content))
+                    f.close()
                 except urllib2.HTTPError, error:
                     if error.code == 404:
                         print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)

@@ -75,19 +75,22 @@ class SongHandler (object):
     def handleSong(self):
         try:
             # use the artist and song name from the input file
-            outputFileName = os.listdir(self.inputDirectory)[0]
+            indir, outputFileName = os.path.split(self.inputDirectory)
+            
+            #outputFileName = os.listdir(self.inputDirectory)[0]
             # expected file name is Artist---SongTitle__123
-            outputFileName = re.split(re.compile("__\d+$"),outputFileName)[0]
+            #outputFileName = re.split(re.compile("__\d+$"),outputFileName)[0]
             out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
             print "outfile:",outputFileName
             needLyrics = True
             for songfile in os.listdir(self.inputDirectory):
                 songfile = os.path.join(self.inputDirectory, songfile)
                 print "infile:",songfile
-                html = self.cleanHTML(songfile)
-                soup = BeautifulSoup(html)
+                #html = self.cleanHTML(songfile)
+                html = open(songfile).read()
+                soup = BeautifulSoup(html, "lxml")
                 ext = Extractor(soup)
-                if needLyrics:
+                if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
                     out.write(ext.extractLyrics() + '\n')
                     needLyrics = False
                 out.write(ext.extractComments())
@@ -108,15 +111,27 @@ class SongHandler (object):
 
 def main():
     try:
+        
         topLevelDir = sys.argv[1]
         output = sys.argv[2]
-        for songDirs in os.listdir(topLevelDir):
-            try:
-                handler = SongHandler(songDirs, output)
-                handler.handleSong()
-            except IOError, error:
-                print "WARNING: skipping %s - maybe it's not a directory?\n%s" % (songDirs, error)
-                print format_exc()
+        if not os.path.isdir(topLevelDir):
+            raise Exception(topLevelDir + " is not a directory")
+        
+        if not os.path.exists(output):
+            os.makedirs(output)
+            print "Creating output directory ", output
+        
+        for songDir in os.listdir(topLevelDir):
+            songDir = os.path.join(topLevelDir, songDir)
+            if not os.path.isdir(songDir):
+                print "Skipping song ", songDir, " because it doesn't look like a directory"
+            else:
+                try:
+                    handler = SongHandler(songDir, output)
+                    handler.handleSong()
+                except IOError, error:
+                    print "WARNING: skipping %s - maybe it's not a directory?\n%s" % (songDir, error)
+                    print format_exc()
     except Exception, e:
         print "Usage: python extractor.py <dir containing song dirs> <output dir>\n %s" % e
         print format_exc()
