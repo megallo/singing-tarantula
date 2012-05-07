@@ -198,7 +198,7 @@ class Crawler(object):
                                 # This includes page 1 (songpage_url) as well as
                                 # the URLs to paginated comment pages
                                 songpage_url = self._pre_visit_url_condense(titleURL[title])
-                                print "\ngoing to song page ", title, songpage_url
+                                print "going to song page ", title, songpage_url
                                 urlGatherer = PaginationGatherer(songpage_url)
                                 urlGatherer.fetch()
                                 oneSongAllPages = urlGatherer.out_links()
@@ -443,7 +443,7 @@ class PaginationGatherer(object):
                 paginationDiv = soup.find(id = "paginationbox")
                 #tags = soup('a')
                 tags = paginationDiv.find_all('a')
-                print "all of the comments! ", tags
+                #print "all of the comments! ", tags
             except urllib2.HTTPError, error:
                 if error.code == 404:
                     print >> sys.stderr, "ERROR: %s -> %s" % (error, error.url)
@@ -661,6 +661,11 @@ def main():
 #        raise SystemExit, 0
 
     output_directory = opts.outdir
+    
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+        print "Creating output directory ", output_directory
+        
     depth_limit = opts.depth_limit
     confine_prefix=opts.confine
     exclude=opts.exclude
