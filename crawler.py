@@ -60,9 +60,10 @@ class Link (object):
 
 class Crawler(object):
 
-    def __init__(self, root, depth_limit, confine=None, exclude=[], locked=True, filter_seen=True):
+    def __init__(self, root, output_dir, depth_limit, confine=None, exclude=[], locked=True, filter_seen=True):
         self.root = root
         self.host = urlparse.urlparse(root)[1]
+        self.outdir = output_dir
 
         ## Data for filters:
         self.depth_limit = depth_limit # Max depth (number of hops from root)
@@ -201,12 +202,11 @@ class Crawler(object):
                                 oneSongAllPages = urlGatherer.out_links()
                                 # make a directory for the artist and song
                                 songMaker = PagePuller(title, songs.get_artist())
-                                songMaker.createDirectory()
-
-                                # hand this full list off to the puller where it will grab each page
-                                # and name it 1.html, 2.html, etc. within the artist-song dir
-                                songMaker.gatherAllPages(oneSongAllPages)
-                                #done with one song
+                                if songMaker.createDirectory(self.outdir): # (checks for dupes)
+                                    # hand this full list off to the puller where it will grab each page
+                                    # and name it 1.html, 2.html, etc. within the artist-song dir
+                                    songMaker.gatherAllPages(oneSongAllPages)
+                                    #done with one song
 
                         do_not_remember = [f for f in self.out_url_filters if not f(link_url)]
                         if [] == do_not_remember:
@@ -267,7 +267,7 @@ class ArtistFetcher(object):
                                               mime_type, url)
                 content = unicode(data.read(), "utf-8",
                         errors="replace")
-                soup = BeautifulSoup(content)
+                soup = BeautifulSoup(content, "lxml")
                 artistTable = soup.find(id = "listing_artists")
                 #tags = soup('a')
                 tags = artistTable.find_all(href=re.compile(".*artist\/view.*"))
@@ -339,7 +339,7 @@ class SongFetcher(object):
                     raise OpaqueDataException("Not interested in files of type %s" % mime_type,
                                               mime_type, url)
                 content = unicode(data.read(), "utf-8", errors="replace")
-                soup = BeautifulSoup(content)
+                soup = BeautifulSoup(content, "lxml")
                 try:
                     #pull out the artist name
                     self.artist = soup.head.title.string.split('|')[2]
@@ -417,6 +417,13 @@ class PaginationGatherer(object):
             return None
         return (request, handle)
 
+    def cleanHTML(self, html):
+        #remove offensive items before handing it to BS
+        #they used some trickery to prevent me from reading the important content
+        #but they can't stop me muahahaha
+        html = html.replace(r'class="protected"','')
+        return re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
+
     def fetch(self):
         request, handle = self._open()
         self._addHeaders(request)
@@ -428,12 +435,12 @@ class PaginationGatherer(object):
                 if mime_type != "text/html":
                     raise OpaqueDataException("Not interested in files of type %s" % mime_type,
                                               mime_type, url)
-                content = unicode(data.read(), "utf-8",
-                        errors="replace")
-                soup = BeautifulSoup(content)
-                pageDiv = soup.find(id = "paginationbox")
+                content = unicode(data.read(), "utf-8", errors="replace")
+                #content = self.cleanHTML(content)
+                soup = BeautifulSoup(content, "lxml")
+                paginationDiv = soup.find(id = "paginationbox")
                 #tags = soup('a')
-                tags = pageDiv.find_all('a')
+                tags = paginationDiv.find_all('a')
                 print "all of the comments! ", tags
             except urllib2.HTTPError, error:
                 if error.code == 404:
@@ -464,7 +471,7 @@ class PagePuller(object):
     """
 
     def __init__(self, songtitle, artistname):
-        self.dirname = songtitle + '---' + artistname
+        self.dirname = artistname + '---' + songtitle
         #I can probably delete these
         self.title = songtitle
         self.artist = artistname
@@ -475,7 +482,8 @@ class PagePuller(object):
     ### If the directory already exists for this song,
     ### don't bother. I don't want to deal with duped
     ### or overwritten data
-    def createDirectory(self):
+    def createDirectory(self, fullpath):
+        self.dirname = os.path.join(fullpath, self.dirname)
         # use the artist and song name
         if os.path.exists(self.dirname):
             return False
@@ -512,7 +520,9 @@ class PagePuller(object):
                         raise OpaqueDataException("Not interested in files of type %s" % mime_type,
                                                   mime_type, url)
                     content = unicode(data.read(), "utf-8", errors="replace")
-                    writeHere = os.path.join(self.dirname, pageCounter, '.html')
+                    pagepage = str(pageCounter) + '.html'
+                    writeHere = os.path.join(self.dirname, pagepage)
+                    pageCounter += 1
                     print 'writing to file ' , writeHere
 #                    f = open(self.dirname + '/' + self.artist + '---' + self.title, 'w')
 #                    f.write(removeNonAscii(content))
@@ -546,6 +556,10 @@ def parse_options():
     """
 
     parser = optparse.OptionParser(usage=USAGE, version=VERSION)
+
+    parser.add_option("-o", "--output-directory",
+            action="store", type="string", dest="outdir",
+            help="Directory to write song dirs into")
 
     parser.add_option("-q", "--quiet",
             action="store_true", default=False, dest="quiet",
@@ -581,6 +595,11 @@ def parse_options():
 
     if len(args) < 1:
         parser.print_help(sys.stderr)
+        raise SystemExit, 1
+    
+    if opts.outdir is None:
+        parser.print_help(sys.stderr)
+        parser.error("need an output directory")
         raise SystemExit, 1
 
     if opts.out_links and opts.out_urls:
@@ -639,6 +658,7 @@ def main():
 #        getLinks(url)
 #        raise SystemExit, 0
 
+    output_directory = opts.outdir
     depth_limit = opts.depth_limit
     confine_prefix=opts.confine
     exclude=opts.exclude
@@ -646,7 +666,7 @@ def main():
     sTime = time.time()
 
     print >> sys.stderr,  "Crawling %s (Max Depth: %d)" % (url, depth_limit)
-    crawler = Crawler(url, depth_limit, confine_prefix, exclude)
+    crawler = Crawler(url, output_directory, depth_limit, confine_prefix, exclude)
     crawler.crawl()
 
     if opts.out_urls:
