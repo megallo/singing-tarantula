@@ -3,7 +3,7 @@
 import os
 import sys
 
-def make_condor_job(executable, args, out = "_stdout", err = "_error", log = "_log", mem = 2):
+def make_condor_job(executable, args, out = "_stdout", err = "_error", log = "/tmp/megallo_soup", mem = 2):
     """Contains the skeletons of a condor job running in the vanilla universe. 
     First argument is for executable, second for arguments, 
     out for output (defaults to "_out"), err for error (defaults to "_err"), log for log (defaults to "_log"), 
@@ -38,13 +38,14 @@ def main():
 	
 	dagstring = []
 	dag = open("dagfile.dag", 'w')
+	dag.write("DAGMAN_LOG_ON_NFS_IS_ERROR = FALSE\n")
 	
 	# number
 	fullURL = sys.argv[1] + "number"
 	fulloutput = os.path.join(sys.argv[2], "number")
 	print fullURL, fulloutput
 	writeme = make_condor_job( executable = "/opt/python-2.7/bin/python2.7", args = "crawler.py " + fullURL + " " + fulloutput)
-	f = open("number.cmd", 'w')
+	f = open("condor/" + "number.cmd", 'w')
 	f.write(writeme)
 	f.close
 	dag.write("JOB\tnumber\tnumber.cmd\n")
@@ -55,13 +56,13 @@ def main():
 		fullURL = sys.argv[1] + chr(code)
 		fulloutput = os.path.join(sys.argv[2], chr(code))
 		print fullURL, fulloutput
-		writeme = make_condor_job( executable = "/opt/python-2.7/bin/python2.7", args = "crawler.py " + fullURL + " " + fulloutput)
+		writeme = make_condor_job( executable = "/opt/python-2.7/bin/python2.7", args = "crawler.py " + fullURL + " -o " + fulloutput)
 		#write the condor script for each letter
-		f = open(chr(code) + ".cmd", 'w')
+		f = open("condor/" + chr(code) + ".cmd", 'w')
 		f.write(writeme)
 		f.close
 		# add a dependency to the DAG file. I don't want these to all run at the same time
-		dag.write("JOB\t" + chr(code) + "\t" + chr(code) + ".cmd" + "\n")
+		dag.write("JOB\t" + chr(code) + "\tcondor/" + chr(code) + ".cmd" + "\n")
 		if code < ord('Z'):
 			dagstring.append("PARENT " + chr(code) + " CHILD " + chr(code+1))
 	
