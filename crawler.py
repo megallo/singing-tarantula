@@ -33,6 +33,7 @@ __author_email__ = "James Mills, James dot Mills st dotred dot com dot au"
 
 ####config stuff
 MIN_COMMENTS = 2
+MIN_SONGS_PER_ARTIST = 10
 ###
 # I don't want crazy letters in my path names
 ALPHANUM = ''.join(chr(c) if chr(c).isalnum() else '_' for c in range(256))
@@ -288,7 +289,7 @@ class ArtistFetcher(object):
                 tags = []
             for tag in tags:
                 #check the song count for the artist. it's in the same table row
-                if tag.parent.next_sibling.string != "0":
+                if int(tag.parent.next_sibling.string.strip()) >= MIN_SONGS_PER_ARTIST:
                     #print tag.string, " ", tag.parent.next_sibling.string
                     href = tag.get("href")
                     if href is not None:
