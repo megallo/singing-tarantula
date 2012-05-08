@@ -1,6 +1,13 @@
 
+# data files
 html/*
 data/*
+
+# condor scripts and output files
+*.cmd
+_error
+_log
+_stdout
 
 *.swp
 #ninja IDE

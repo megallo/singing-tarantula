@@ -289,7 +289,7 @@ class ArtistFetcher(object):
             for tag in tags:
                 #check the song count for the artist. it's in the same table row
                 if tag.parent.next_sibling.string != "0":
-                    print tag.string, " ", tag.parent.next_sibling.string
+                    #print tag.string, " ", tag.parent.next_sibling.string
                     href = tag.get("href")
                     if href is not None:
                         url = urlparse.urljoin(self.url, escape(href))
@@ -374,7 +374,7 @@ class SongFetcher(object):
                 if commentCount >= MIN_COMMENTS:
                     songTag = tag.contents[0].find("a")
                     songTitle = songTag.string
-                    print songTitle, " ", commentCount
+                    #print songTitle, " ", commentCount
                     href = songTag.get("href")
                     songTitle = removeNonAscii(songTag.string.strip()).encode("ascii").translate(ALPHANUM)
                     if href is not None and songTitle is not None:
