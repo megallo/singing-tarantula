@@ -34,15 +34,40 @@ def main():
 	if len(sys.argv) < 3:
 		print "Give me a song URL and an output dir"
 		raise SystemExit(1)
-
+	
+	
+	dagstring = []
+	dag = open("dagfile.dag", 'w')
+	
+	# number
+	fullURL = sys.argv[1] + "number"
+	fulloutput = os.path.join(sys.argv[2], "number")
+	print fullURL, fulloutput
+	writeme = make_condor_job( executable = "/opt/python-2.7/bin/python2.7", args = "crawler.py " + fullURL + " " + fulloutput)
+	f = open("number.cmd", 'w')
+	f.write(writeme)
+	f.close
+	dag.write("JOB\tnumber\tnumber.cmd\n")
+	dagstring.append("PARENT Z CHILD number")
+	
+	# alphabet
 	for code in range(ord('A'), ord('Z')+1):
 		fullURL = sys.argv[1] + chr(code)
 		fulloutput = os.path.join(sys.argv[2], chr(code))
 		print fullURL, fulloutput
 		writeme = make_condor_job( executable = "/opt/python-2.7/bin/python2.7", args = "crawler.py " + fullURL + " " + fulloutput)
+		#write the condor script for each letter
 		f = open(chr(code) + ".cmd", 'w')
 		f.write(writeme)
 		f.close
+		# add a dependency to the DAG file. I don't want these to all run at the same time
+		dag.write("JOB\t" + chr(code) + "\t" + chr(code) + ".cmd" + "\n")
+		if code < ord('Z'):
+			dagstring.append("PARENT " + chr(code) + " CHILD " + chr(code+1))
+	
+	dag_dependencies = "\n".join(dagstring) + "\n"
+	dag.write(dag_dependencies)
+	dag.close()
 
 
 if __name__ == "__main__":
