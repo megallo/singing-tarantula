@@ -32,8 +32,8 @@ __author__ = "James Mills"
 __author_email__ = "James Mills, James dot Mills st dotred dot com dot au"
 
 ####config stuff
-MIN_COMMENTS = 2
-MIN_SONGS_PER_ARTIST = 10
+MIN_COMMENTS = 10
+MIN_SONGS_PER_ARTIST = 20
 ###
 # I don't want crazy letters in my path names
 ALPHANUM = ''.join(chr(c) if chr(c).isalnum() else '_' for c in range(256))
