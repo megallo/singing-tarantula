@@ -10,7 +10,7 @@ import sys
 from traceback import format_exc
 from bs4 import BeautifulSoup
 
-MIN_RATING = -100
+MIN_RATING = 0
 
 class Extractor (object):
 
@@ -81,20 +81,20 @@ class SongHandler (object):
             # expected file name is Artist---SongTitle__123
             #outputFileName = re.split(re.compile("__\d+$"),outputFileName)[0]
             out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
-            print "outfile:",outputFileName
+            #print "outfile:",outputFileName
             needLyrics = True
             for songfile in os.listdir(self.inputDirectory):
                 songfile = os.path.join(self.inputDirectory, songfile)
-                print "infile:",songfile
+                #print "infile:",songfile
                 #html = self.cleanHTML(songfile)
                 html = open(songfile).read()
                 soup = BeautifulSoup(html, "lxml")
                 ext = Extractor(soup)
                 if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
-                    out.write(ext.extractLyrics() + '\n')
+                    out.write(removeNonAscii(ext.extractLyrics() + '\n'))
                     needLyrics = False
-                out.write(ext.extractComments())
-                print "got this many comments ", ext.count()
+                out.write(removeNonAscii(ext.extractComments()))
+                #print "got this many comments ", ext.count()
             # OK, that's one whole song
             out.close()
         except IndexError:
@@ -108,6 +108,9 @@ class SongHandler (object):
         html = open(filename).read()
         html = html.replace(r'class="protected"','')
         return re.sub(r'<sc.*r.*ipt>.*</sc.*r.*ipt>','',html.lower())
+
+def removeNonAscii(s):
+    return "".join(i for i in s if ord(i)<128)
 
 def main():
     try:
