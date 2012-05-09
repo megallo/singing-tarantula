@@ -97,8 +97,11 @@ class SongHandler (object):
                 #print "got this many comments ", ext.count()
             # OK, that's one whole song
             out.close()
-        except IndexError:
-            print "WARNING: skipping song because the directory is empty -> %s" % self.inputDirectory
+        except UnicodeEncodeError:
+            print "WARNING: skipping song because of encoding issues -> %s" % outputFileName
+        except IOError, e:
+            print "ERROR: skipping song because of an I/O problem -> %s" % e
+            print format_exc()
 
 
     def cleanHTML(self, filename):
@@ -114,7 +117,7 @@ def removeNonAscii(s):
 
 def main():
     try:
-        
+        print "Working on directory ", sys.argv[1]
         topLevelDir = sys.argv[1]
         output = sys.argv[2]
         if not os.path.isdir(topLevelDir):
