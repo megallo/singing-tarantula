@@ -370,18 +370,22 @@ class SongFetcher(object):
                 print >>sys.stderr, "Skipping %s, has type %s" % (error.url, error.mimetype)
                 tags = []
             for tag in tags:
-                commentCount = int(tag.contents[1].find("a").string)
-                 #check the comment count for the song
-                if commentCount >= MIN_COMMENTS:
-                    songTag = tag.contents[0].find("a")
-                    songTitle = songTag.string
-                    #print songTitle, " ", commentCount
-                    href = songTag.get("href")
-                    songTitle = removeNonAscii(songTag.string.strip()).encode("ascii").translate(ALPHANUM)
-                    if href is not None and songTitle is not None:
-                        url = urlparse.urljoin(self.url, escape(href))
-                        print songTitle,url, " added to song page list \n"
-                        self.out_urls[songTitle] = url
+                try:
+                    commentCount = int(tag.contents[1].find("a").string)
+                     #check the comment count for the song
+                    if commentCount >= MIN_COMMENTS:
+                        songTag = tag.contents[0].find("a")
+                        songTitle = songTag.string
+                        #print songTitle, " ", commentCount
+                        href = songTag.get("href")
+                        songTitle = removeNonAscii(songTag.string.strip()).encode("ascii").translate(ALPHANUM)
+                        if href is not None and songTitle is not None:
+                            url = urlparse.urljoin(self.url, escape(href))
+                            print songTitle,url, " added to song page list \n"
+                            self.out_urls[songTitle] = url
+                except IndexError, error:
+                    #the artist page is bugged, move on
+                    print >> sys.stderr, "WARNING: skipping artist page %s" % error
 
 
 class PaginationGatherer(object):
