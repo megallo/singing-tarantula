@@ -11,12 +11,20 @@ from traceback import format_exc
 from bs4 import BeautifulSoup
 
 MIN_RATING = 0
+MIN_COMMENT_COUNT = 50
 
 class Extractor (object):
 
     def __init__(self, soup):
         self.commentcount = 0
         self.soup = soup
+        
+    def totalSongComments(self):
+        commentlistdiv = self.soup.find(id="comments_listing")
+        comment_string = commentlistdiv.find("div").find("div").find("li").string.strip()
+        comment_count = re.sub(re.compile("\D*"), "", comment_string) # removes the word 'Comments'
+        print "Comment count is ! ", comment_count
+        return comment_count
 
     def extractLyrics(self):
         lyrics = self.soup.find(attrs={'name' : "description"})
@@ -91,6 +99,15 @@ class SongHandler (object):
                 soup = BeautifulSoup(html, "lxml")
                 ext = Extractor(soup)
                 if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
+                    #check to see if we really want to do this. I mean after all.
+                    if not int(ext.totalSongComments()) >= MIN_COMMENT_COUNT:
+                        print "Skipping song with too few comments"
+                        out.close()
+                        # it's kind of a chicken and egg situation. 
+                        # easiest thing is to just delete the file we just opened
+                        # (I don't like it either.)
+                        os.remove(os.path.join(self.outputDirectory,outputFileName))
+                        return
                     out.write(removeNonAscii(ext.extractLyrics() + '\n'))
                     needLyrics = False
                 out.write(removeNonAscii(ext.extractComments()))
@@ -102,6 +119,10 @@ class SongHandler (object):
         except IOError, e:
             print "ERROR: skipping song because of an I/O problem -> %s" % e
             print format_exc()
+        except AttributeError, ee:
+            print "ERROR: skipping song because I couldn't find the comment count -> %s" % self.inputDirectory
+            print format_exc()
+            out.close()
 
 
     def cleanHTML(self, filename):
