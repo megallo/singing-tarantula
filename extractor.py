@@ -11,7 +11,7 @@ from traceback import format_exc
 from bs4 import BeautifulSoup
 
 MIN_RATING = 0
-MIN_COMMENT_COUNT = 50
+MIN_COMMENT_COUNT = 100
 
 class Extractor (object):
 
@@ -85,9 +85,6 @@ class SongHandler (object):
             # use the artist and song name from the input file
             indir, outputFileName = os.path.split(self.inputDirectory)
             
-            #outputFileName = os.listdir(self.inputDirectory)[0]
-            # expected file name is Artist---SongTitle__123
-            #outputFileName = re.split(re.compile("__\d+$"),outputFileName)[0]
             out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
             #print "outfile:",outputFileName
             needLyrics = True
@@ -110,6 +107,12 @@ class SongHandler (object):
                         return
                     out.write(removeNonAscii(ext.extractLyrics() + '\n'))
                     needLyrics = False
+		comments = removeNonAscii(ext.extractComments())
+		if len(comments) < 1:
+			print "Skipping song with not enough good comments"
+			out.close()
+			os.remove(os.path.join(self.outputDirectory,outputFileName))
+			return
                 out.write(removeNonAscii(ext.extractComments()))
                 #print "got this many comments ", ext.count()
             # OK, that's one whole song

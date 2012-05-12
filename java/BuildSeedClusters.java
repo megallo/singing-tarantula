@@ -90,7 +90,7 @@ public class BuildSeedClusters {
 				for (int i = 0; i < chosenTexts.size(); i++) {
 					writer.append(chosenTexts.get(i), chosenClusters.get(i));
 				}
-				System.out.printf("Wrote {} vectors to {} \n", chosenTexts.size(), outFile);
+				System.out.printf("Wrote %d vectors to %s \n", chosenTexts.size(), outFile);
 			} finally {
 				writer.close();
 			}
