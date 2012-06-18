@@ -3,18 +3,17 @@
 ####
 # Usage: python extractor.py input_directory output_directory
 # input directory structure should look like
-# and the one you pass in is holding A/ B/ etc.
-    # A/Artist_A---Song_Title/1.html
-    # A/Artist_A---Song_Title/2.html
-    # A/Artist_A---Another_Song_Title/1.html
-    # A/Artist_A---Another_Song_Title/2.html
-    # B/Artist_B---Song_Title/1.html
-    # B/Artist_B---Song_Title/2.html
-    # B/Artist_B---Song_Title/3.html
+    # Artist_A---Song_Title/1.html
+    # Artist_A---Song_Title/2.html
+    # Artist_A---Another_Song_Title/1.html
+    # Artist_A---Another_Song_Title/2.html
+    # Artist_AA---Song_Title/1.html
+    # Artist_AA---Song_Title/2.html
+    # Artist_AA---Song_Title/3.html
 # and then comments get extracted into individual text files named 
 #   Artist_A---Song_Title
 #   Artist_A---Another_Song_Title
-#   Artist_B---Song_Title
+#   Artist_AA---Song_Title
 ####
 
 import re
