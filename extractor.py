@@ -98,9 +98,12 @@ class SongHandler (object):
             # use the artist and song name from the input file
             indir, outputFileName = os.path.split(self.inputDirectory)
             
+            #we have to iterate over multiple comment files, so open this first
+            out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
             #print "outfile:",outputFileName
             needLyrics = KEEP_LYRICS
             for songfile in os.listdir(self.inputDirectory):
+                # this is 1.html, 2.html, etc
                 songfile = os.path.join(self.inputDirectory, songfile)
                 #print "infile:",songfile
                 #html = self.cleanHTML(songfile)
@@ -110,20 +113,20 @@ class SongHandler (object):
                 #check to see if we really want to do this. I mean after all.
                 if not int(ext.totalSongComments()) >= MIN_COMMENT_COUNT:
                     print "Skipping song with too few comments"
+                    out.close()
+                    os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
                     return
-                #we have enough comments. Let's continue our mission
-                out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
+                # we have enough comments. Let's continue our mission
                 if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
                     out.write(removeNonAscii(ext.extractLyrics() + '\n'))
                     needLyrics = False
-        #get comments
-		comments = removeNonAscii(ext.extractComments())
-		if len(comments) < 1:
-			print "Skipping song with not enough good comments"
-			out.close()
-			os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
-			return
+                # get comments
                 out.write(removeNonAscii(ext.extractComments()))
+            if ext.count() < 1: # we might filter everything due to the min comment rating. if so, delete unusable file
+    			print "Skipping song with not enough good comments"
+    			out.close()
+    			os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
+    			return
                 #print "got this many comments ", ext.count()
             # OK, that's one whole song
             out.close()
