@@ -1,7 +1,20 @@
 #!/usr/bin/python
 
 ####
-# Usage: python extractor.py filename
+# Usage: python extractor.py input_directory output_directory
+# input directory structure should look like
+# and the one you pass in is holding A/ B/ etc.
+    # A/Artist_A---Song_Title/1.html
+    # A/Artist_A---Song_Title/2.html
+    # A/Artist_A---Another_Song_Title/1.html
+    # A/Artist_A---Another_Song_Title/2.html
+    # B/Artist_B---Song_Title/1.html
+    # B/Artist_B---Song_Title/2.html
+    # B/Artist_B---Song_Title/3.html
+# and then comments get extracted into individual text files named 
+#   Artist_A---Song_Title
+#   Artist_A---Another_Song_Title
+#   Artist_B---Song_Title
 ####
 
 import re
@@ -11,7 +24,8 @@ from traceback import format_exc
 from bs4 import BeautifulSoup
 
 MIN_RATING = 0
-MIN_COMMENT_COUNT = 100
+MIN_COMMENT_COUNT = 150
+KEEP_LYRICS = False
 
 class Extractor (object):
 
@@ -85,9 +99,8 @@ class SongHandler (object):
             # use the artist and song name from the input file
             indir, outputFileName = os.path.split(self.inputDirectory)
             
-            out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
             #print "outfile:",outputFileName
-            needLyrics = True
+            needLyrics = KEEP_LYRICS
             for songfile in os.listdir(self.inputDirectory):
                 songfile = os.path.join(self.inputDirectory, songfile)
                 #print "infile:",songfile
@@ -95,23 +108,21 @@ class SongHandler (object):
                 html = open(songfile).read()
                 soup = BeautifulSoup(html, "lxml")
                 ext = Extractor(soup)
+                #check to see if we really want to do this. I mean after all.
+                if not int(ext.totalSongComments()) >= MIN_COMMENT_COUNT:
+                    print "Skipping song with too few comments"
+                    return
+                #we have enough comments. Let's continue our mission
+                out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
                 if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
-                    #check to see if we really want to do this. I mean after all.
-                    if not int(ext.totalSongComments()) >= MIN_COMMENT_COUNT:
-                        print "Skipping song with too few comments"
-                        out.close()
-                        # it's kind of a chicken and egg situation. 
-                        # easiest thing is to just delete the file we just opened
-                        # (I don't like it either.)
-                        os.remove(os.path.join(self.outputDirectory,outputFileName))
-                        return
                     out.write(removeNonAscii(ext.extractLyrics() + '\n'))
                     needLyrics = False
+        #get comments
 		comments = removeNonAscii(ext.extractComments())
 		if len(comments) < 1:
 			print "Skipping song with not enough good comments"
 			out.close()
-			os.remove(os.path.join(self.outputDirectory,outputFileName))
+			os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
 			return
                 out.write(removeNonAscii(ext.extractComments()))
                 #print "got this many comments ", ext.count()
@@ -128,6 +139,7 @@ class SongHandler (object):
             out.close()
 
 
+    #Unused. Turns out I was just dumb
     def cleanHTML(self, filename):
         #remove offensive items before handing it to BS
         #they used some trickery to prevent me from reading the important content
@@ -163,7 +175,7 @@ def main():
                     print "WARNING: skipping %s - maybe it's not a directory?\n%s" % (songDir, error)
                     print format_exc()
     except Exception, e:
-        print "Usage: python extractor.py <dir containing song dirs> <output dir>\n %s" % e
+        print "Usage: python extractor.py <dir containing song dirs containing html files> <output dir>\n %s" % e
         print format_exc()
 
 if __name__ == "__main__":
