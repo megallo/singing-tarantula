@@ -25,12 +25,12 @@ public class VectorReader {
 	HashMap<Integer, String> dictionaryMap = new HashMap<Integer, String>();
 
 	/**
-	 * @param args
+	 * @param args - <vector file> <dictionary file>
 	 */
 	public static void main(String[] args) {
 		VectorReader v = new VectorReader();
 		try {
-			v.loadDictionary();
+			v.loadDictionary(args[1]);
 			v.loadVectors(args[0]);
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -56,10 +56,10 @@ public class VectorReader {
 		reader.close();
 	}
 	
-	public void loadDictionary() throws IOException {
+	public void loadDictionary(String dictionaryPath) throws IOException {
 		Configuration conf = new Configuration();
 		FileSystem fs = FileSystem.get(conf);
-		SequenceFile.Reader read = new SequenceFile.Reader(fs, new Path(""), conf);
+		SequenceFile.Reader read = new SequenceFile.Reader(fs, new Path(dictionaryPath), conf);
 		IntWritable dicKey = new IntWritable();
 		Text text = new Text();
 		
