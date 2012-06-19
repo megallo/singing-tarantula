@@ -36,7 +36,6 @@ class Extractor (object):
         commentlistdiv = self.soup.find(id="comments_listing")
         comment_string = commentlistdiv.find("div").find("div").find("li").string.strip()
         comment_count = re.sub(re.compile("\D*"), "", comment_string) # removes the word 'Comments'
-        print "Comment count is ! ", comment_count
         return comment_count
 
     def extractLyrics(self):
@@ -102,6 +101,8 @@ class SongHandler (object):
             out = open(os.path.join(self.outputDirectory,outputFileName), 'w')
             #print "outfile:",outputFileName
             needLyrics = KEEP_LYRICS
+            totalCommentsPulled = 0
+            firstPass = True # I don't need to check the total count for every file
             for songfile in os.listdir(self.inputDirectory):
                 # this is 1.html, 2.html, etc
                 songfile = os.path.join(self.inputDirectory, songfile)
@@ -111,18 +112,24 @@ class SongHandler (object):
                 soup = BeautifulSoup(html, "lxml")
                 ext = Extractor(soup)
                 #check to see if we really want to do this. I mean after all.
-                if not int(ext.totalSongComments()) >= MIN_COMMENT_COUNT:
-                    print "Skipping song with too few comments"
-                    out.close()
-                    os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
-                    return
+                if firstPass:
+                    if not int(ext.totalSongComments()) >= MIN_COMMENT_COUNT:
+                        #print "Skipping song with too few comments"
+                        out.close()
+                        os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
+                        return
+                    else:
+                        print "Getting " + ext.totalSongComments() + " comments for song " + outputFileName
+                    firstPass = False
                 # we have enough comments. Let's continue our mission
                 if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
                     out.write(removeNonAscii(ext.extractLyrics() + '\n'))
                     needLyrics = False
                 # get comments
                 out.write(removeNonAscii(ext.extractComments()))
-            if ext.count() < 1: # we might filter everything due to the min comment rating. if so, delete unusable file
+                out.flush()
+                totalCommentsPulled += ext.count()
+            if totalCommentsPulled < 1: # we might filter everything due to the min comment rating. if so, delete unusable file
     			print "Skipping song with not enough good comments"
     			out.close()
     			os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
@@ -130,6 +137,7 @@ class SongHandler (object):
                 #print "got this many comments ", ext.count()
             # OK, that's one whole song
             out.close()
+            print "Finished with song " + outputFileName + ", got " + `totalCommentsPulled` + " comments"
         except UnicodeEncodeError:
             print "WARNING: skipping song because of encoding issues -> %s" % outputFileName
         except IOError, e:
