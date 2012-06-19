@@ -1,13 +1,13 @@
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Scanner;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.SequenceFile;
-import org.apache.hadoop.io.Text;
 import org.apache.mahout.math.NamedVector;
 import org.apache.mahout.math.RandomAccessSparseVector;
 import org.apache.mahout.math.Vector.Element;
@@ -57,15 +57,15 @@ public class VectorReader {
 	}
 	
 	public void loadDictionary(String dictionaryPath) throws IOException {
-		Configuration conf = new Configuration();
-		FileSystem fs = FileSystem.get(conf);
-		SequenceFile.Reader read = new SequenceFile.Reader(fs, new Path(dictionaryPath), conf);
-		IntWritable dicKey = new IntWritable();
-		Text text = new Text();
-		
-		while (read.next(text, dicKey)) {
-			dictionaryMap.put(Integer.parseInt(dicKey.toString()), text.toString());
+		Scanner s = new Scanner(new File(dictionaryPath));
+		s.nextLine(); s.nextLine(); //skip count and header
+		while (s.hasNextLine()) {
+			String line = s.nextLine();
+			String [] tokens = line.split("\\s+");
+			try {
+				dictionaryMap.put(Integer.parseInt(tokens[2]), tokens[0]);
+			} catch (ArrayIndexOutOfBoundsException e) { }
 		}
-		read.close();
+		s.close();
 	}
 }
