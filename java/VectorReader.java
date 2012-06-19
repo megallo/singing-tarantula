@@ -23,21 +23,25 @@ import org.apache.mahout.math.VectorWritable;
 
 public class VectorReader {
 	HashMap<Integer, String> dictionaryMap = new HashMap<Integer, String>();
+	private static double TOO_SMALL = 1e-12;
 
 	/**
-	 * @param args - <vector file> <dictionary file>
+	 * @param args - <vector file> <dictionary file> [minimum weight to show]
 	 */
 	public static void main(String[] args) {
 		VectorReader v = new VectorReader();
 		try {
 			v.loadDictionary(args[1]);
-			v.loadVectors(args[0]);
+			if (args.length > 2)
+				v.loadVectors(args[0], Double.valueOf(args[2]));
+			else
+				v.loadVectors(args[0], TOO_SMALL);
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
 	}
 
-	public void loadVectors(String vectorsPath) throws IOException {
+	public void loadVectors(String vectorsPath, double min) throws IOException {
 		Configuration conf = new Configuration();
 		FileSystem fs = FileSystem.get(conf);
 		Path path = new Path(vectorsPath);
@@ -50,7 +54,9 @@ public class VectorReader {
 			RandomAccessSparseVector vect = (RandomAccessSparseVector)namedVector.getDelegate();
 			System.out.println("docID: " + namedVector.getName());
 			for( Element  e : vect ){
-				System.out.println("Token: " + dictionaryMap.get(e.index()) + "\tTF-IDF weight: " + e.get()) ;
+				if (e.get() > TOO_SMALL && e.get() > min)
+										//token						//tf-idf weight
+					System.out.println(dictionaryMap.get(e.index()) + "\t\t" + e.get()) ;
 			}
 		}
 		reader.close();
