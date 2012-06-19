@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.Scanner;
 import java.util.Set;
 
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.TermVector;
@@ -69,7 +68,7 @@ public class SongIndexer {
     public void openIndex(String indexDir) throws IOException {
         FSDirectory dir = FSDirectory.open(new File(indexDir));
 
-        StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_34, stopwords);
+        NGramAnalyzer analyzer = new NGramAnalyzer(Version.LUCENE_34, stopwords);
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_34, analyzer);
 
         writer = new IndexWriter(dir, config);
