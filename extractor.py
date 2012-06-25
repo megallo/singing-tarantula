@@ -23,7 +23,7 @@ from traceback import format_exc
 from bs4 import BeautifulSoup
 
 MIN_RATING = 0
-MIN_COMMENT_COUNT = 150
+MIN_COMMENT_COUNT = 70
 MAX_COMMENT_COUNT = 300
 KEEP_LYRICS = False
 
@@ -35,7 +35,6 @@ class Extractor (object):
     def __init__(self, soup):
         self.soup = soup
         self.commentcount = 0
-        self.songcommentcount = self.totalSongComments()
         
     def totalSongComments(self):
         commentlistdiv = self.soup.find(id="comments_listing")
@@ -82,8 +81,6 @@ class Extractor (object):
 
     def actualCountThisFile(self):
         return self.commentcount
-    def supposedCountThisSong(self):
-        return self.songcommentcount
 
 '''
     Traverses one directory, which should correspond to
@@ -120,13 +117,13 @@ class SongHandler (object):
                 ext = Extractor(soup)
                 #check to see if we really want to do this. I mean after all.
                 if firstPass:
-                    if int(ext.supposedCountThisSong()) < MIN_COMMENT_COUNT or int(ext.supposedCountThisSong()) > MAX_COMMENT_COUNT:
+                    if int(ext.totalSongComments()) < MIN_COMMENT_COUNT or int(ext.totalSongComments()) > MAX_COMMENT_COUNT:
                         #print "Skipping song with too few comments"
                         out.close()
                         os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
                         return
                     else:
-                        print "Getting " + ext.supposedCountThisSong() + " comments for song " + outputFileName
+                        print "Getting " + ext.totalSongComments() + " comments for song " + outputFileName
                     firstPass = False
                 # we have enough comments. Let's continue our mission
                 if needLyrics: # only get the lyrics from the first file (it's in every file but don't want dupes)
@@ -155,6 +152,7 @@ class SongHandler (object):
             print "ERROR: skipping song because I couldn't find the comment count -> %s" % self.inputDirectory
             print format_exc()
             out.close()
+            os.remove(os.path.join(self.outputDirectory,outputFileName)) #delete the file
 
 
     #Unused. Turns out I was just dumb
