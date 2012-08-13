@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 
 import org.apache.hadoop.conf.Configuration;
@@ -16,15 +17,17 @@ import org.apache.mahout.math.Vector;
 
 /**
  * Adaptation of cluster writer from Mahout in Action,
- * but fixed for 0.6 and writes more useful cluster info
+ * but fixed for 0.6 and writes more useful cluster info,
+ * and then re-adapted to work with fuzzy cluster probabilities
  * 
- * Output file name is the user-defined prefix_clusterID__count of items in cluster
+ * Output file name is the user-defined prefix_alldocs
  * 
  * @author megs
  */
 public class FuzzyClusterOutput {
 	
-	private HashMap<String, ArrayList<String>> clusterIDConstituents = new HashMap<String, ArrayList<String>>();
+	//holds the name of the point mapped to a list of pairs of cluster-probabilities
+	private HashMap<String, ArrayList<Pair>> pointVectorToClusterProbs = new HashMap<String, ArrayList<Pair>>();
 	
 	private String inputDir;
 
@@ -59,14 +62,11 @@ public class FuzzyClusterOutput {
             IntWritable key = new IntWritable();
             WeightedVectorWritable value = new WeightedVectorWritable();
 
-            //TODO: figure out how to map the vector int id back to the name of the vector
-            bw = new BufferedWriter(new FileWriter(new File(outputFilePrefix+"_alldocs")));
             // read all the pairs in the sequence file and put them in a map
             while (reader.next(key, value)) {
             	//key is the cluster ID, value is the vector mapping clusters to probabilities for this document
             	String vectorName;
             	Vector vector = value.getVector();
-            	bw.write(key + "\n");
             	if (vector instanceof NamedVector) {
             	    vector = (NamedVector) value.getVector();
                     vectorName = ((NamedVector) vector).getName();
@@ -75,38 +75,78 @@ public class FuzzyClusterOutput {
 	                vectorName = vector.asFormatString();
             	}
             	
-            	bw.write(vectorName + "\t" + value.getWeight() + "\n\n");
-//            	//add to map
-//            	insertOrAppend(key.toString(), vectorName);
+            	//add to map
+            	insertOrAppend(vectorName, key.toString(), value.getWeight());
             }
             reader.close();
-            bw.flush();
-            bw.close();
         }
         
-        /** finished reading. now write to files **/
+        /** finished reading. now write to file **/
+    	bw = new BufferedWriter(new FileWriter(new File(outputFilePrefix+"_alldocs")));
         
-//        //for each cluster, write a separate file
-//        for (String key : clusterIDConstituents.keySet()) {
-//        	ArrayList<String> vectornames = clusterIDConstituents.get(key);
-//        	//file name is the user-defined prefix, cluster ID, count of items in cluster
-//        	bw = new BufferedWriter(new FileWriter(new File(outputFilePrefix+"_" + key + "__" + vectornames.size())));
-//        	//write the items in the cluster 
-//        	for (String name : vectornames) {
-//        		bw.write(name + "\n");
-//        	}
-//	        bw.flush();
-//	        bw.close();
-//        }
+        for (String key : pointVectorToClusterProbs.keySet()) {
+        	ArrayList<Pair> clusterProbs = pointVectorToClusterProbs.get(key);
+        	Collections.sort(clusterProbs); //sorts descending by probability
+        	bw.write(key + "\n");
+        	for (Pair cluster : clusterProbs)
+        		bw.write(cluster.word + "\t" + cluster.similarity + "\n");
+        	bw.write("\n"); //finished with one point
+        }
+        bw.flush();
+        bw.close();
 	}
 
-	private void insertOrAppend(String clusterID, String name) {
-		if (clusterIDConstituents.containsKey(clusterID)) {
-			clusterIDConstituents.get(clusterID).add(name);
+	private void insertOrAppend(String vectorName, String clusterID, double probability) {
+		Pair pair = new Pair(clusterID, probability);
+		if (pointVectorToClusterProbs.containsKey(clusterID)) {
+			pointVectorToClusterProbs.get(clusterID).add(pair);
 		} else {
-			ArrayList<String> addme = new ArrayList<String>();
-			addme.add(name);
-			clusterIDConstituents.put(clusterID, addme);
+			ArrayList<Pair> addme = new ArrayList<Pair>();
+			addme.add(pair);
+			pointVectorToClusterProbs.put(clusterID, addme);
+		}
+	}
+
+	/**
+	 * A string and its number, to make it easier to sort
+	 * Sorts by numeric descending
+	 */
+	private class Pair implements Comparable<Object> {
+		String word;
+		double similarity;
+		
+		Pair (String word, double distance) {
+			this.word = word;
+			this.similarity = distance;
+		}
+
+		public boolean equals(Object other) {
+			if (((Pair) other).word.equals(this.word) && 
+					((Pair) other).similarity == (this.similarity))
+				return true;
+			else
+				return false;
+		}
+		
+		public int hashCode() {
+		    int hash = 1;
+		    hash = hash * 17 + word.hashCode();
+		    hash = hash * 17 + Double.valueOf(similarity).hashCode();
+		    return hash;
+		}
+		
+		//Sorts descending by similarity
+		public int compareTo(Object that) {
+			if (this.similarity < ((Pair)that).similarity)
+				return 1;
+			else if (this.similarity == ((Pair)that).similarity)
+				return 0;
+			else
+				return -1;
+		}
+		
+		public String toString() {
+			return "[" + word + ", " + similarity + "]";
 		}
 	}
 }
