@@ -59,6 +59,7 @@ public class FuzzyClusterOutput {
                 continue;
             System.out.println("reading file " + file.getAbsolutePath());
             SequenceFile.Reader reader = new SequenceFile.Reader(fs,  new Path(file.getAbsolutePath()), conf);
+            System.out.println("key is class " + reader.getKeyClassName() + " and value is class " + reader.getValueClassName());
             IntWritable key = new IntWritable();
             WeightedVectorWritable value = new WeightedVectorWritable();
 
