@@ -25,6 +25,7 @@ public class SongIndexer {
 
     public static final String CONTENT = "contents";
     public static final String DOCID = "docID";
+    public static final String PATH = "path";
 
     private IndexWriter writer;
     private ArrayList<File> queue = new ArrayList<File>();
@@ -97,6 +98,9 @@ public class SongIndexer {
                 
                 // add docID, don't use it for queries
                 doc.add(new Field(DOCID, f.getName(), Field.Store.YES, Field.Index.NOT_ANALYZED));
+
+                // add path (just the file name) for the demo search, don't use it for queries
+                doc.add(new Field(PATH, f.getName(), Field.Store.YES, Field.Index.NOT_ANALYZED));
 
                 writer.addDocument(doc);
                 // System.out.println("Added: " + f);
