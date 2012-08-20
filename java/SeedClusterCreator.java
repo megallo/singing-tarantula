@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
@@ -11,7 +12,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
-import org.apache.mahout.clustering.kmeans.Cluster;
+import org.apache.mahout.clustering.Cluster;
+import org.apache.mahout.clustering.iterator.DistanceMeasureCluster;
 import org.apache.mahout.common.ClassUtils;
 import org.apache.mahout.common.distance.CosineDistanceMeasure;
 import org.apache.mahout.common.distance.DistanceMeasure;
@@ -19,12 +21,11 @@ import org.apache.mahout.math.NamedVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
 
-import com.google.common.collect.Lists;
-import com.google.common.io.Closeables;
-
 /**
  * Reads in a SequenceFile of vectors and a file containing docIDs. Creates a
  * SequenceFile of clusters from the vectors matching the docIDs.
+ * 
+ * Currently compatibly with Mahout 0.7
  * 
  * @author megs
  */
@@ -86,14 +87,15 @@ public class SeedClusterCreator {
 		Path outFile = new Path(outputDir, "part-seeds");
 		SequenceFile.Writer writer = SequenceFile.createWriter(fs, conf,
 				outFile, Text.class, Cluster.class);
-		List<Text> chosenTexts = Lists.newArrayListWithCapacity(seedNames.size());
-		List<Cluster> chosenClusters = Lists.newArrayListWithCapacity(seedNames.size());
+		List<Text> chosenTexts = new ArrayList<Text>();
+		List<Cluster> chosenClusters = new ArrayList<Cluster>();
 
 		//set up stuff for new cluster creation
         int nextClusterId = 0;
         //hardcoding, lazy
         DistanceMeasure measure = ClassUtils.instantiateAs(CosineDistanceMeasure.class.getName(), DistanceMeasure.class);
 
+        int count = 0;
         // read all the pairs in the sequence file and find the seed vectors
         while (reader.next(key, value)) {
         	//key is some kind of ID, value is the named vector holder
@@ -105,12 +107,13 @@ public class SeedClusterCreator {
                 continue;
                 //you forgot the -nv flag
         	}
-        	
+        	System.out.println("Found vector " + vectorName);
+        	count++;
         	if (seedNames.contains(vectorName)) {
         		System.out.println("Found vector for desired seed " + vectorName);
 
-				Cluster newCluster = new Cluster(vector, nextClusterId++, measure);
-				newCluster.observe(value.get(), 1);
+				Cluster newCluster = new DistanceMeasureCluster(vector, nextClusterId++, measure);
+				//newCluster.observe(value.get(), 1); //?? why was I doing this
 				Text newText = new Text(key.toString());
 
 				//add to lists, and then we'll write them as key/value pairs all at once
@@ -119,7 +122,7 @@ public class SeedClusterCreator {
         	}
         }
         reader.close();
-
+        System.out.println("Total count " + count);
 		try {
 	        //we've collected all the vectors for the requested seeds
 	        // if we couldn't find one, complain loudly and refuse to write the cluster file
@@ -132,7 +135,7 @@ public class SeedClusterCreator {
 			}
 			System.out.println("Wrote " + chosenTexts.size() + " vectors to " + outFile);
 		} finally {
-			Closeables.closeQuietly(writer);
+			if (writer != null) writer.close();
 		}
     }
 	

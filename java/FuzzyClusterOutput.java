@@ -11,7 +11,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
-import org.apache.mahout.clustering.WeightedVectorWritable;
+import org.apache.mahout.clustering.classify.WeightedPropertyVectorWritable;
 import org.apache.mahout.math.NamedVector;
 import org.apache.mahout.math.Vector;
 
@@ -61,7 +61,7 @@ public class FuzzyClusterOutput {
             SequenceFile.Reader reader = new SequenceFile.Reader(fs,  new Path(file.getAbsolutePath()), conf);
             System.out.println("key is class " + reader.getKeyClassName() + " and value is class " + reader.getValueClassName());
             IntWritable key = new IntWritable();
-            WeightedVectorWritable value = new WeightedVectorWritable();
+            WeightedPropertyVectorWritable value = new WeightedPropertyVectorWritable();
 
             // read all the pairs in the sequence file and put them in a map
             while (reader.next(key, value)) {
