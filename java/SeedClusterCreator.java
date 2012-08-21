@@ -13,7 +13,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.mahout.clustering.Cluster;
-import org.apache.mahout.clustering.iterator.DistanceMeasureCluster;
+import org.apache.mahout.clustering.kmeans.Kluster;
 import org.apache.mahout.common.ClassUtils;
 import org.apache.mahout.common.distance.CosineDistanceMeasure;
 import org.apache.mahout.common.distance.DistanceMeasure;
@@ -88,7 +88,7 @@ public class SeedClusterCreator {
 		SequenceFile.Writer writer = SequenceFile.createWriter(fs, conf,
 				outFile, Text.class, Cluster.class);
 		List<Text> chosenTexts = new ArrayList<Text>();
-		List<Cluster> chosenClusters = new ArrayList<Cluster>();
+		List<Kluster> chosenClusters = new ArrayList<Kluster>();
 
 		//set up stuff for new cluster creation
         int nextClusterId = 0;
@@ -112,7 +112,7 @@ public class SeedClusterCreator {
         	if (seedNames.contains(vectorName)) {
         		System.out.println("Found vector for desired seed " + vectorName);
 
-				Cluster newCluster = new DistanceMeasureCluster(vector, nextClusterId++, measure);
+				Kluster newCluster = new Kluster(vector, nextClusterId++, measure);
 				//newCluster.observe(value.get(), 1); //?? why was I doing this
 				Text newText = new Text(key.toString());
 
