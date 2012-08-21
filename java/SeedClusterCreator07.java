@@ -30,7 +30,7 @@ import org.apache.mahout.math.VectorWritable;
  * 
  * @author megs
  */
-public class SeedClusterCreator {
+public class SeedClusterCreator07 {
 
 	private String inputVectorFile;
 	private String seedFile;
@@ -44,19 +44,19 @@ public class SeedClusterCreator {
 	public static void main(String[] args) {
 		if (args.length < 3) {
 			System.out
-					.println("Usage:\njava SeedClusterCreator <vector file> <seed id file> <output dir>");
+					.println("Usage:\njava SeedClusterCreator07 <vector file> <seed id file> <output dir>");
 			System.exit(1);
 		}
 
 		try {
-			SeedClusterCreator seeder = new SeedClusterCreator(args[0], args[1], args[2]);
+			SeedClusterCreator07 seeder = new SeedClusterCreator07(args[0], args[1], args[2]);
 			seeder.doStuff();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
-	public SeedClusterCreator(String vectorFileName, String seedFileName,
+	public SeedClusterCreator07(String vectorFileName, String seedFileName,
 			String outputDirName) {
 		inputVectorFile = vectorFileName;
 		outputDir = new Path(outputDirName);
