@@ -86,7 +86,7 @@ public class SeedClusterCreator {
         //set up for writing stuff
 		Path outFile = new Path(outputDir, "part-seeds");
 		SequenceFile.Writer writer = SequenceFile.createWriter(fs, conf,
-				outFile, Text.class, Cluster.class);
+				outFile, Text.class, Kluster.class);
 		List<Text> chosenTexts = new ArrayList<Text>();
 		List<Kluster> chosenClusters = new ArrayList<Kluster>();
 
