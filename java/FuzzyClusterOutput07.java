@@ -24,7 +24,7 @@ import org.apache.mahout.math.Vector;
  * 
  * @author megs
  */
-public class FuzzyClusterOutput {
+public class FuzzyClusterOutput07 {
 	
 	//holds the name of the point mapped to a list of pairs of cluster-probabilities
 	private HashMap<String, ArrayList<Pair>> pointVectorToClusterProbs = new HashMap<String, ArrayList<Pair>>();
@@ -36,14 +36,14 @@ public class FuzzyClusterOutput {
  */
 	public static void main(String[] args) {
 	    try {
-	    	FuzzyClusterOutput fco = new FuzzyClusterOutput(args[0]);
+	    	FuzzyClusterOutput07 fco = new FuzzyClusterOutput07(args[0]);
 	    	fco.doStuff(args[1]);
 	        } catch (IOException e) {
 	            e.printStackTrace();
         }
     }
 
-	public FuzzyClusterOutput(String clusteredPointsDir) {
+	public FuzzyClusterOutput07(String clusteredPointsDir) {
 		inputDir = clusteredPointsDir;
 	}
 
